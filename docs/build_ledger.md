@@ -120,7 +120,7 @@ blockers: git_auth=local_commit_continue; dirty=pause_reconcile; push=local_only
 | --- | --- | --- | --- | --- | --- | --- |
 | B-001 | integration | executive thread (single writer) | accepted | Port data tables + protobuf encoder from index.html to Python `d4filter/` package; establish golden byte-comparison tests | pytest incl. node-run golden harness | repeat-data typo risk; golden harness fidelity |
 | B-002 | integration | executive thread (single writer) | accepted | Maxroll guide fetch + parser + one-shot CLI skeleton | focused parser fixture tests | site selector brittleness |
-| B-003 | integration | queued | pending | Mapper with aliases + interactive resolution | focused mapper tests + manual smoke | ambiguity silently dropping stats |
+| B-003 | integration | executive thread (single writer) | accepted | Mapper with aliases + interactive resolution | focused mapper tests + manual smoke | ambiguity silently dropping stats |
 | B-004 | integration | queued | pending | Mobalytics parser, richer rule tiers, class detection/gating | focused tests + real-guide smoke | rule-order reversal bug |
 
 ## Acceptance Evidence
@@ -129,6 +129,7 @@ blockers: git_auth=local_commit_continue; dirty=pause_reconcile; push=local_only
 | --- | --- | --- | --- | --- |
 | B-001 | integration | 2026-10-09: `pytest` 12/12 pass. 6 golden cases byte-identical (base64 string equality) between `d4filter.filter_mirror.build_mirror_filter` and the live JS encoder from index.html executed under node via `tools/golden_harness.js`; includes empty filter, skill-only, full hf-warlock preset, duplicate stats, and no-gold-branch paths. Unit tests cover varint continuation bits, field headers, condition shapes. | manual in-game import not performed this slice | Python data tables are a copy of index.html; drift between the two is possible until synced automatically (tracked as open decision) |
 | B-002 | integration | 2026-10-09: `pytest` 23/23 pass. Parser tests against a saved 550KB fixture of the live Hell Fracture Warlock guide; extracts title/class/season/profiles, named skills, skill-bar IDs, Important Stats lines, and the guide's own 3 authored filter codes. Live smoke test: `d4filter.cli https://maxroll.gg/d4/build-guides/hell-fracture-warlock-guide` fetches and parses correctly with plausible UA | mapper does not exist yet; Mobalytics untouched; Important Stats prose varies across guides | maxroll page redesign or Remix context schema change will break the parser; fixture guards current shape |
+| B-003 | integration | 2026-10-09: `pytest` 37/37 pass (full gate at the B-003 boundary incl. re-run golden parity). Mapper resolves real guide prose end to end: fixture guide generates a valid import code with core [Attack Speed, Critical Strike Chance], secondary [Maximum Life, Lucky Hit Restore Primary Resource], confirmed skills [Hell Fracture, Sigil of Chaos, Sigil of Subversion]. Interactive resolver prompts with fuzzy suggestions and persists user aliases to `~/.config/d4filter/aliases.json`, covered by tests with monkeypatched stdin. | live in-game import still not performed; Abyss-Skills rank line unmatched by design (temper phrasing) | fuzzy threshold 0.72 could over-match short strings; aliases persist per-user only |
 
 ## Open Decisions
 

@@ -12,6 +12,7 @@ from pathlib import Path
 
 from .data import SKILLS
 from .fetcher import fetch_cached
+from .mapper import CORE_AFFIXES, map_skills, map_stat_lines
 from .maxroll import parse_maxroll_guide
 
 
@@ -62,6 +63,73 @@ def describe(spec) -> str:
     return "\n".join(lines)
 
 
+def _interactive_resolve(unmatched: list[str]) -> dict[str, str]:
+    """Prompt the user for each unmatched stat line and persist the answer."""
+    from .data import DB
+    from . import aliases as alias_store
+    from difflib import SequenceMatcher
+
+    resolved: dict[str, str] = {}
+    for line in unmatched:
+        suggestions = sorted(
+            DB,
+            key=lambda name: SequenceMatcher(None, line.lower(), name.lower()).ratio(),
+            reverse=True,
+        )[:5]
+        print(f"\nUnmapped: {line!r}")
+        for index, name in enumerate(suggestions, start=1):
+            print(f"  {index}. {name}")
+        print("  0. skip")
+        choice = input("Match (number or new name, empty=skip): ").strip()
+        if not choice:
+            continue
+        if choice.isdigit() and 1 <= int(choice) <= len(suggestions):
+            db_name = suggestions[int(choice) - 1]
+        elif choice in DB:
+            db_name = choice
+        else:
+            print(f"  '{choice}' is not in the DB; try again next run")
+            continue
+        resolved[line] = db_name
+        alias_store.put(line.strip(), db_name)
+    return resolved
+
+
+def generate(spec, alias_table: dict[str, str], interactive: bool = False, gold_n: int = 2):
+    """Combine guide extraction, mapping, and the mirror rule builder."""
+    stats = map_stat_lines(spec.stat_lines, alias_table)
+    if interactive and stats.unmatched:
+        stats.skills.extend(map_skills(spec.skills).skills)
+        resolved = _interactive_resolve(stats.unmatched)
+        for line, db_name in resolved.items():
+            if db_name in CORE_AFFIXES:
+                stats.core.append(db_name)
+            else:
+                stats.secondary.append(db_name)
+        stats.unmatched = [line for line in stats.unmatched if line not in resolved]
+    else:
+        skills = map_skills(spec.skills)
+        stats.skills.extend(skills.skills)
+
+    # Dedupe while preserving order (Set semantics of the web tool).
+    core = list(dict.fromkeys(stats.core))
+    secondary = list(dict.fromkeys(stats.secondary))
+    skills_final = list(dict.fromkeys(stats.skills))
+
+    name = spec.title or "My Loot Filter"
+    from .filter_mirror import build_mirror_filter
+
+    code = build_mirror_filter(name, core, secondary, skills_final, gold_n=gold_n)
+    summary = {
+        "core": core,
+        "secondary": secondary,
+        "skills": skills_final,
+        "unmatched": stats.unmatched,
+        "code": code,
+    }
+    return summary
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         prog="d4filter",
@@ -70,9 +138,16 @@ def main(argv=None) -> int:
     parser.add_argument("url", nargs="?", help="maxroll.gg build-guide URL")
     parser.add_argument("--file", help="parse a saved guide HTML file instead of fetching")
     parser.add_argument("--no-cache", action="store_true", help="bypass the disk cache")
+    parser.add_argument("--interactive", action="store_true", help="prompt for unmatched stats")
+    parser.add_argument("--gold", type=int, default=2, help="core stats required for gold tier (default 2)")
+    parser.add_argument(
+        "--describe-only",
+        action="store_true",
+        help="print the extraction summary instead of generating a code",
+    )
     parser.add_argument(
         "--print-guide-filter",
-        help="print the guide's own loot filter code by name (e.g. 'Maxroll Light') instead of summarizing",
+        help="print the guide's own loot filter code by name (e.g. 'Maxroll Light') instead of generating",
     )
     args = parser.parse_args(argv)
 
@@ -86,7 +161,24 @@ def main(argv=None) -> int:
         available = ", ".join(name for name, _ in spec.guide_filter_codes) or "none"
         raise SystemExit(f"error: no guide filter named {args.print_guide_filter!r}; available: {available}")
 
-    print(describe(spec))
+    if args.describe_only:
+        print(describe(spec))
+        return 0
+
+    result = generate(spec, {}, interactive=args.interactive, gold_n=args.gold)
+
+    print(f"Filter:   {spec.title or 'My Loot Filter'}")
+    print(f"Class:    {spec.game_class or '(unknown)'} | Season {spec.season}")
+    print(f"Core:     {', '.join(result['core']) or '-'}")
+    print(f"Second.:  {', '.join(result['secondary']) or '-'}")
+    print(f"Skills:   {', '.join(result['skills']) or '-'}")
+    if result["unmatched"]:
+        print("Unmatched (skipped):")
+        for line in result["unmatched"]:
+            print(f"  - {line}")
+    print()
+    print("Import code:")
+    print(result["code"])
     return 0
 
 
