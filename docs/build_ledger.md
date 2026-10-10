@@ -119,7 +119,7 @@ blockers: git_auth=local_commit_continue; dirty=pause_reconcile; push=local_only
 | Baton | Tier | Owner | Status | Objective | Verification | Risk |
 | --- | --- | --- | --- | --- | --- | --- |
 | B-001 | integration | executive thread (single writer) | accepted | Port data tables + protobuf encoder from index.html to Python `d4filter/` package; establish golden byte-comparison tests | pytest incl. node-run golden harness | repeat-data typo risk; golden harness fidelity |
-| B-002 | integration | queued | pending | Maxroll guide fetch + parser + one-shot CLI skeleton | focused parser fixture tests | site selector brittleness |
+| B-002 | integration | executive thread (single writer) | accepted | Maxroll guide fetch + parser + one-shot CLI skeleton | focused parser fixture tests | site selector brittleness |
 | B-003 | integration | queued | pending | Mapper with aliases + interactive resolution | focused mapper tests + manual smoke | ambiguity silently dropping stats |
 | B-004 | integration | queued | pending | Mobalytics parser, richer rule tiers, class detection/gating | focused tests + real-guide smoke | rule-order reversal bug |
 
@@ -128,12 +128,14 @@ blockers: git_auth=local_commit_continue; dirty=pause_reconcile; push=local_only
 | Baton | Tier | Evidence | Skipped checks | Residual risk |
 | --- | --- | --- | --- | --- |
 | B-001 | integration | 2026-10-09: `pytest` 12/12 pass. 6 golden cases byte-identical (base64 string equality) between `d4filter.filter_mirror.build_mirror_filter` and the live JS encoder from index.html executed under node via `tools/golden_harness.js`; includes empty filter, skill-only, full hf-warlock preset, duplicate stats, and no-gold-branch paths. Unit tests cover varint continuation bits, field headers, condition shapes. | manual in-game import not performed this slice | Python data tables are a copy of index.html; drift between the two is possible until synced automatically (tracked as open decision) |
+| B-002 | integration | 2026-10-09: `pytest` 23/23 pass. Parser tests against a saved 550KB fixture of the live Hell Fracture Warlock guide; extracts title/class/season/profiles, named skills, skill-bar IDs, Important Stats lines, and the guide's own 3 authored filter codes. Live smoke test: `d4filter.cli https://maxroll.gg/d4/build-guides/hell-fracture-warlock-guide` fetches and parses correctly with plausible UA | mapper does not exist yet; Mobalytics untouched; Important Stats prose varies across guides | maxroll page redesign or Remix context schema change will break the parser; fixture guards current shape |
 
 ## Open Decisions
 
 | ID | Decision | Owner | Status | Notes |
 | --- | --- | --- | --- | --- |
 | D-001 | Single source of truth for DB/SKILLS | executive | open | index.html holds originals; d4filter/data.py is a copy. Keep both in sync manually until (or unless) index.html is generated from data.py. Automated parity test is an option. |
+| D-002 | Maxroll guide content parsing channel | executive | decided | Parse `window.__remixContext` JSON (plannerProfile + widgetNotes + data.lootFilters) rather than scraping visible HTML. HTML shell is a Remix client shell with no article content in markup. Verified against live Season 15 guide and saved fixture. |
 
 ## Retrospective
 

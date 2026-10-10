@@ -1,0 +1,45 @@
+"""Fetch guide pages with a disk cache.
+
+The cache saves full HTML keyed by URL hash so guide parsing and fixture
+diffing can run offline, and retries against the cache if the site blocks
+or a fetch fails.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import time
+from pathlib import Path
+
+CACHE_TTL_SECONDS = 24 * 60 * 60
+
+
+def cache_dir() -> Path:
+    return Path.home() / ".cache" / "d4filter"
+
+
+def _cache_path(url: str) -> Path:
+    digest = hashlib.sha256(url.encode()).hexdigest()[:32]
+    return cache_dir() / f"{digest}.json"
+
+
+def fetch_cached(url: str, use_cache: bool = True) -> str:
+    entry = _cache_path(url)
+    if use_cache and entry.exists():
+        try:
+            data = json.loads(entry.read_text())
+            if time.time() - data["fetched_at"] < CACHE_TTL_SECONDS:
+                return data["html"]
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+    import urllib.request
+
+    request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible)"})
+    with urllib.request.urlopen(request, timeout=30) as response:
+        html = response.read().decode("utf-8", errors="replace")
+
+    cache_dir().mkdir(parents=True, exist_ok=True)
+    entry.write_text(json.dumps({"url": url, "fetched_at": time.time(), "html": html}))
+    return html
