@@ -54,10 +54,7 @@ function findImportantStats(root) {
   return lines;
 }
 
-function parseMaxroll(html, sourceUrl) {
-  const match = html.match(/window\.__remixContext\s*=\s*(\{[\s\S]*?\});?\s*<\/script>/);
-  if (!match) throw new Error("no window.__remixContext found");
-  const context = JSON.parse(match[1]);
+function parseMaxrollContext(context, sourceUrl) {
   const loader = (context.state || {}).loaderData || {};
   let post = null;
   for (const value of Object.values(loader)) {
@@ -164,10 +161,7 @@ function statProse(doc) {
   return [...new Set(paragraphs.filter((p) => p.trim()))];
 }
 
-function parseMobalytics(html, sourceUrl) {
-  const match = html.match(/window\.__PRELOADED_STATE__\s*=\s*(\{[\s\S]*?\});?\s*<\/script>/);
-  if (!match) throw new Error("no window.__PRELOADED_STATE__ found");
-  const state = JSON.parse(match[1].replace(/;\s*$/, ""));
+function parseMobalyticsState(state, sourceUrl) {
 
   let doc = null;
   const queries = ((state.diablo4State || {}).apollo || {}).graphqlV2?.queries || [];
@@ -208,6 +202,28 @@ function parseMobalytics(html, sourceUrl) {
     guideFilterCodes: [],
   };
 }
+
+  function parseMaxroll(htmlOrContext, sourceUrl) {
+    if (htmlOrContext && typeof htmlOrContext === "object") {
+      return parseMaxrollContext(htmlOrContext, sourceUrl);
+    }
+    const match = String(htmlOrContext).match(
+      /window\.__remixContext\s*=\s*(\{[\s\S]*?\});?\s*<\/script>/
+    );
+    if (!match) throw new Error("no window.__remixContext found");
+    return parseMaxrollContext(JSON.parse(match[1]), sourceUrl);
+  }
+
+  function parseMobalytics(htmlOrState, sourceUrl) {
+    if (htmlOrState && typeof htmlOrState === "object") {
+      return parseMobalyticsState(htmlOrState, sourceUrl);
+    }
+    const match = String(htmlOrState).match(
+      /window\.__PRELOADED_STATE__\s*=\s*(\{[\s\S]*?\});?\s*<\/script>/
+    );
+    if (!match) throw new Error("no window.__PRELOADED_STATE__ found");
+    return parseMobalyticsState(JSON.parse(match[1].replace(/;\s*$/, "")), sourceUrl);
+  }
 
 if (typeof module !== "undefined" && module.exports) {
   module.exports = { parseMaxroll, parseMobalytics };

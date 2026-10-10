@@ -1,6 +1,6 @@
-// Popup logic: asks the active tab for its guide payload, maps it, and
-// renders the generated import code. Aliases and the gold threshold are
-// persisted via chrome.storage.sync.
+// Popup logic: reads the active tab's embedded guide payload directly in
+// the MAIN world (chrome.scripting), maps it, and renders the import code.
+// No network requests are made; everything runs locally in the browser.
 "use strict";
 
 const statusEl = document.getElementById("status");
@@ -9,24 +9,38 @@ const codeEl = document.getElementById("code");
 const copyEl = document.getElementById("copy");
 const goldEl = document.getElementById("gold");
 
-chrome.storage.sync.get(["aliases", "gold"], (data) => {
+chrome.storage.sync.get(["gold"], (data) => {
   if (data.gold) goldEl.value = String(data.gold);
 });
 goldEl.addEventListener("change", () => {
   chrome.storage.sync.set({ gold: parseInt(goldEl.value, 10) });
 });
 
+function readGuideSource(tabId) {
+  return chrome.scripting.executeScript({
+    target: { tabId },
+    world: "MAIN",
+    func: () => {
+      const remix = window.__remixContext ?? null;
+      const preloaded = window.__PRELOADED_STATE__ ?? null;
+      return {
+        remix: remix ? JSON.parse(JSON.stringify(remix)) : null,
+        preloaded: preloaded ? JSON.parse(JSON.stringify(preloaded)) : null,
+        seen: {
+          remixContext: typeof window.__remixContext,
+          preloadedState: typeof window.__PRELOADED_STATE__,
+        },
+        href: window.location.href,
+      };
+    },
+  });
+}
+
 function parseGuideFromSource(source, url) {
   const parsers = globalThis.D4.parsers;
-  if (source.remixContext) {
-    const html = `<script>window.__remixContext = ${source.remixContext}</script>`;
-    return parsers.parseMaxroll(html, url);
-  }
-  if (source.preloadedState) {
-    const html = `<script>window.__PRELOADED_STATE__ = ${source.preloadedState}</script>`;
-    return parsers.parseMobalytics(html, url);
-  }
-  throw new Error("this tab does not expose a known guide payload");
+  if (source.remix) return parsers.parseMaxroll(source.remix, url);
+  if (source.preloaded) return parsers.parseMobalytics(source.preloaded, url);
+  return null;
 }
 
 function render(spec, result) {
@@ -46,25 +60,6 @@ function render(spec, result) {
   copyEl.dataset.code = result.code;
 }
 
-const CONTENT_SCRIPT_FILES = ["lib/core.js", "lib/guide-spec.js", "lib/mapper.js", "content.js"];
-
-async function getGuideFromTab(tab) {
-  // Tabs opened before the extension loaded never ran the content script,
-  // and the receiving end then doesn't exist. Inject on demand (fully
-  // local: no network is used at any point).
-  try {
-    return await chrome.tabs.sendMessage(tab.id, { type: "d4filter:get-guide" });
-  } catch (error) {
-    if (!chrome.scripting) throw error;
-    await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      files: CONTENT_SCRIPT_FILES,
-    });
-    await new Promise((resolve) => setTimeout(resolve, 250));
-    return chrome.tabs.sendMessage(tab.id, { type: "d4filter:get-guide" });
-  }
-}
-
 document.getElementById("generate").addEventListener("click", async () => {
   statusEl.textContent = "Reading guide…";
   summaryEl.textContent = "";
@@ -75,12 +70,18 @@ document.getElementById("generate").addEventListener("click", async () => {
     if (!tab || !tab.id || !/^https?:/.test(tab.url || "")) {
       throw new Error("open a maxroll.gg or mobalytics.gg guide tab first");
     }
-    const response = await getGuideFromTab(tab);
-    if (!response || !response.ok || !response.source ||
-        (!response.source.remixContext && !response.source.preloadedState)) {
-      throw new Error("this tab does not expose a known guide payload");
+    const [injection] = await readGuideSource(tab.id);
+    const source = injection && injection.result;
+    const spec = source ? parseGuideFromSource(source, source.href) : null;
+    if (!spec) {
+      const seen = source ? source.seen : {};
+      const detail = Object.entries(seen)
+        .map(([key, type]) => `${key}=${type}`)
+        .join(", ") || "page not inspected";
+      throw new Error(
+        `no guide payload on this tab (${detail}). Reload the guide page once, then click Generate again.`
+      );
     }
-    const spec = parseGuideFromSource(response.source, response.url);
     const aliases = (await chrome.storage.sync.get("aliases")).aliases || {};
     const goldN = parseInt(goldEl.value, 10);
     const result = globalThis.D4.mapper.generateFromSpec(spec, aliases, goldN);
