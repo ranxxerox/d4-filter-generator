@@ -12,6 +12,9 @@ dependencies = []
 [project.optional-dependencies]
 dev = ["pytest"]
 
+[project.scripts]
+d4filter = "d4filter.cli:main"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"

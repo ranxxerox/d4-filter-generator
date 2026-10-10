@@ -12,17 +12,25 @@ from pathlib import Path
 
 from .data import SKILLS
 from .fetcher import fetch_cached
-from .mapper import CORE_AFFIXES, map_skills, map_stat_lines
+from .mapper import CORE_AFFIXES, map_prose, map_skills, map_stat_lines
+from .mobalytics import parse_mobalytics_guide
 from .maxroll import parse_maxroll_guide
 
 
 def _load_guide(url: str | None, file_path: str | None, use_cache: bool = True):
     if file_path:
-        return parse_maxroll_guide(Path(file_path).read_text(encoding="utf-8"), source_url=file_path)
-    if not url:
+        html = Path(file_path).read_text(encoding="utf-8")
+        source = file_path
+    elif url:
+        html = fetch_cached(url, use_cache=use_cache)
+        source = url
+    else:
         raise SystemExit("error: provide a guide URL or --file PATH")
-    html = fetch_cached(url, use_cache=use_cache)
-    return parse_maxroll_guide(html, source_url=url)
+    return (
+        parse_maxroll_guide(html, source_url=source)
+        if "window.__remixContext" in html
+        else parse_mobalytics_guide(html, source_url=source)
+    )
 
 
 def _skill_status(spec):
@@ -95,9 +103,9 @@ def _interactive_resolve(unmatched: list[str]) -> dict[str, str]:
     return resolved
 
 
-def generate(spec, alias_table: dict[str, str], interactive: bool = False, gold_n: int = 2):
+def generate(spec, alias_table: dict[str, str], interactive: bool = False, gold_n: int = 2, mirror: bool = False):
     """Combine guide extraction, mapping, and the mirror rule builder."""
-    stats = map_stat_lines(spec.stat_lines, alias_table)
+    stats = map_stat_lines(spec.stat_lines, alias_table) if spec.site == "maxroll" else map_prose(" ".join(spec.stat_lines))
     if interactive and stats.unmatched:
         stats.skills.extend(map_skills(spec.skills).skills)
         resolved = _interactive_resolve(stats.unmatched)
@@ -117,9 +125,14 @@ def generate(spec, alias_table: dict[str, str], interactive: bool = False, gold_
     skills_final = list(dict.fromkeys(stats.skills))
 
     name = spec.title or "My Loot Filter"
-    from .filter_mirror import build_mirror_filter
+    if mirror:
+        from .filter_mirror import build_mirror_filter
 
-    code = build_mirror_filter(name, core, secondary, skills_final, gold_n=gold_n)
+        code = build_mirror_filter(name, core, secondary, skills_final, gold_n)
+    else:
+        from .rules import build_richer_filter
+
+        code = build_richer_filter(name, core, secondary, skills_final, gold_n, spec.game_class)
     summary = {
         "core": core,
         "secondary": secondary,
@@ -140,6 +153,7 @@ def main(argv=None) -> int:
     parser.add_argument("--no-cache", action="store_true", help="bypass the disk cache")
     parser.add_argument("--interactive", action="store_true", help="prompt for unmatched stats")
     parser.add_argument("--gold", type=int, default=2, help="core stats required for gold tier (default 2)")
+    parser.add_argument("--mirror", action="store_true", help="use the web tool's exact 8-rule stack instead of the richer tiers")
     parser.add_argument(
         "--describe-only",
         action="store_true",
@@ -165,7 +179,7 @@ def main(argv=None) -> int:
         print(describe(spec))
         return 0
 
-    result = generate(spec, {}, interactive=args.interactive, gold_n=args.gold)
+    result = generate(spec, {}, interactive=args.interactive, gold_n=args.gold, mirror=args.mirror)
 
     print(f"Filter:   {spec.title or 'My Loot Filter'}")
     print(f"Class:    {spec.game_class or '(unknown)'} | Season {spec.season}")

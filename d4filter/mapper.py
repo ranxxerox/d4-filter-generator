@@ -31,10 +31,16 @@ _ABBREVIATIONS = {
     "chd": "critical strike damage multiplier",
     "crit dmg": "critical strike damage multiplier",
     "crit di": "critical strike damage multiplier",
+    "crit chance": "critical strike chance",
+    "crit damage": "critical strike damage multiplier",
+    "crit strike damage": "critical strike damage multiplier",
     "cs": "critical strike chance",
     "cc": "critical strike chance",
     "ldk": "lucky hit chance",
     "imp ldk": "lucky hit restore primary resource",
+    "lucky hit for resource": "lucky hit restore primary resource",
+    "lucky hit restore resource": "lucky hit restore primary resource",
+    "max life": "maximum life",
 }
 
 
@@ -151,4 +157,18 @@ def map_skills(skill_names: list[str]) -> Mapping:
             mapping.skills.append(db_name)
         elif not db_name:
             mapping.unmatched.append(name)
+    return mapping
+
+
+def map_prose(blob: str) -> Mapping:
+    """Affix hunting for site prose (mobalytics): a match is official if a
+    DB name (or its alias expansion) appears verbatim in the text."""
+    mapping = Mapping()
+    text = blob.lower()
+    for phrase, target in _ABBREVIATIONS.items():
+        text = re.sub(rf"{re.escape(phrase)}\b", target, text)
+    for name in DB:
+        if name.lower() in text:
+            role, db_name = _classify(name)
+            (mapping.core if role == "core" else mapping.secondary).append(db_name)
     return mapping
