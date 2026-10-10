@@ -6,6 +6,7 @@ Diablo IV loot filter tooling. Two artifacts share one reverse-engineered format
 
 1. **`index.html`** (~1300 lines) — the original single-page web tool, inline CSS/JS, no dependencies. Deployed by GitHub Pages from `main` (https://upsilon72.github.io/d4-filter-generator), so every commit to `main` ships immediately.
 2. **`d4filter/`** — a Python CLI package (same repository) that fetches maxroll.gg and mobalytics.gg build guides and emits filter import codes. Installed via `pip install -e .[dev]`; console entry point `d4filter`. Its own docs live in `d4filter/README.md`; the ported data/encoder modules document the shared format invariants.
+3. **`extension/`** — an MV3 Chrome extension with the same goal: a content script forwards each guide page's embedded JSON (`window.__remixContext` / `__PRELOADED_STATE__`) to a popup that maps stats and emits an import code. `extension/lib/core.js` is **generated** from `index.html` by `tools/sync_extension_data.py` — never edit it by hand; rerun the script after encoder/data changes (a pytest staleness guard enforces this). The other lib modules are IIFE-wrapped because they load as classic scripts sharing one global scope.
 
 No frameworks, no build step, no lint tooling. Tests are pytest (`.venv/bin/python -m pytest`); golden tests require `node` on PATH.
 
