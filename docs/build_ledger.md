@@ -5,7 +5,7 @@ Initialized: 2026-10-09
 ## Current Factory State
 
 ```text
-status: running / baton in progress
+status: running / product slices complete, hardening backlog open
 work_mode: velocity
 role_topology: lean_solo
 user_involvement: hands_off
@@ -146,6 +146,14 @@ blockers: git_auth=local_commit_continue; dirty=pause_reconcile; push=local_only
 | --- | --- | --- |
 
 ## Next Baton Candidate
+
+Hardening backlog (candidate batons B-005+):
+
+- Curate mobalytics prose false positives (Strength/Armor/Damage Reduction/Lucky Hit Chance) via a suppression map or per-slot affix tables.
+- In-game import verification of at least one maxroll-derived and one mobalytics-derived code (manual, user-assisted).
+- DB parity test between index.html and d4filter/data.py (decides D-001).
+- Interactive confirmation of skill-rank line handling ("Ranks to X" lines).
+- CLI polish: error paths for non-guide URLs, cache TTL flag, structured output (--json).
 
 ```text
 Define B-001 with objective, write scope, non-goals, risk, acceptance tier, and verification.

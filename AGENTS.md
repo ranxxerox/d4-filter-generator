@@ -2,18 +2,25 @@
 
 ## Project Overview
 
-Single-page, dependency-free web tool that generates Diablo IV loot filter import codes. The entire application is **one file: `index.html`** (~1300 lines) containing inline CSS, inline JS, and HTML markup. No frameworks, no build step, no package manager, no tests. Deployment is GitHub Pages from `main` (https://upsilon72.github.io/d4-filter-generator), so every commit to `main` ships immediately.
+Diablo IV loot filter tooling. Two artifacts share one reverse-engineered format:
+
+1. **`index.html`** (~1300 lines) — the original single-page web tool, inline CSS/JS, no dependencies. Deployed by GitHub Pages from `main` (https://upsilon72.github.io/d4-filter-generator), so every commit to `main` ships immediately.
+2. **`d4filter/`** — a Python CLI package (same repository) that fetches maxroll.gg and mobalytics.gg build guides and emits filter import codes. Installed via `pip install -e .[dev]`; console entry point `d4filter`. Its own docs live in `d4filter/README.md`; the ported data/encoder modules document the shared format invariants.
+
+No frameworks, no build step, no lint tooling. Tests are pytest (`.venv/bin/python -m pytest`); golden tests require `node` on PATH.
 
 ## Commands
 
-There is no build, test, or lint tooling. The only useful commands are:
+There is no build or lint tooling. The useful commands are:
 
-- **Run locally:** open `index.html` directly in a browser (e.g. `open index.html`) — everything works from `file://`; there is no server and no fetch/XHR logic.
-- **Test changes:** manual verification in the browser. Click Generate and paste the output code into the in-game D4 filter import screen (or decode the base64 protobuf yourself to verify bytes).
+- **Run the web tool locally:** open `index.html` directly in a browser (e.g. `open index.html`) — everything works from `file://`.
+- **Run the CLI:** `.venv/bin/d4filter <guide-url>` (see `d4filter/README.md` for flags).
+- **Test changes:** `.venv/bin/python -m pytest`. Golden tests execute the JavaScript encoder extracted from `index.html` under node (`tools/golden_harness.js`) and compare output byte-for-byte with the Python port — they are the main correctness gate for any encoder/data change.
+- **Test the web tool manually:** generate a code in the browser, paste into the in-game D4 filter import screen.
 
 ## Architecture and Data Flow
 
-Everything lives in `index.html`'s single `<script>` block, in this order:
+The web tool lives in `index.html`'s single `<script>` block, in this order:
 
 1. **Data tables** (lines ~718–913):
    - `DB` — map of affix display name → confirmed 32-bit affix ID (hex). Currently 77 entries.
@@ -41,3 +48,11 @@ Everything lives in `index.html`'s single `<script>` block, in this order:
 - Section banners use `// ════` for major areas and `// ──` for minor ones; CSS uses `/* ── name ── */` comments. The CSS custom-property palette (`--bg`, `--gold`, `--cyan`, ...) in `:root` is the only color source for the UI theme.
 - Data lives in plain `const` objects/arrays keyed by human-readable display names; display name strings are used as the join key between `DB`, `CORE_CANDIDATES`, `SKILLS`, `state`, and `PRESETS`. If you rename an affix string, you must rename it in **all** of those places plus presets, or the mapping breaks silently (`filter(Boolean)` drops misses).
 - No minification requirements, no external JS deps. Inline everything.
+
+## Python package specifics
+
+- `d4filter/data.py` mirrors `DB`/`SKILLS`/constants from `index.html` and is **not** the source of truth; verify ID changes in the game first, and keep both copies identical (open decision D-001 in `docs/build_ledger.md`).
+- Guide parsing is against each site's embedded JSON payload, not visible HTML (maxroll: `window.__remixContext`; mobalytics: `window.__PRELOADED_STATE__`). Site redesigns break parsers — saved HTML fixtures under `tests/fixtures/` guard the current shapes; refresh them from live pages when formats change.
+- Mobalytics plain fetches get 403; the fetcher sends full browser-like headers to succeed. Don't simplify them back to a minimal UA.
+- `d4filter/filter_mirror.py` replicates the web tool's exact rule stack and is only for golden parity tests; product rule tiers live in `d4filter/rules.py`. Change behavior there, not in the mirror.
+- Factory process docs (`docs/factory_config.md`, `docs/build_ledger.md`) track batons, acceptance evidence, and open decisions for ongoing work.
