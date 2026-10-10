@@ -46,6 +46,25 @@ function render(spec, result) {
   copyEl.dataset.code = result.code;
 }
 
+const CONTENT_SCRIPT_FILES = ["lib/core.js", "lib/guide-spec.js", "lib/mapper.js", "content.js"];
+
+async function getGuideFromTab(tab) {
+  // Tabs opened before the extension loaded never ran the content script,
+  // and the receiving end then doesn't exist. Inject on demand (fully
+  // local: no network is used at any point).
+  try {
+    return await chrome.tabs.sendMessage(tab.id, { type: "d4filter:get-guide" });
+  } catch (error) {
+    if (!chrome.scripting) throw error;
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: CONTENT_SCRIPT_FILES,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    return chrome.tabs.sendMessage(tab.id, { type: "d4filter:get-guide" });
+  }
+}
+
 document.getElementById("generate").addEventListener("click", async () => {
   statusEl.textContent = "Reading guide…";
   summaryEl.textContent = "";
@@ -53,9 +72,13 @@ document.getElementById("generate").addEventListener("click", async () => {
   copyEl.style.display = "none";
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    const response = await chrome.tabs.sendMessage(tab.id, { type: "d4filter:get-guide" });
-    if (!response || !response.ok || !response.source) {
-      throw new Error("no guide payload returned from the tab");
+    if (!tab || !tab.id || !/^https?:/.test(tab.url || "")) {
+      throw new Error("open a maxroll.gg or mobalytics.gg guide tab first");
+    }
+    const response = await getGuideFromTab(tab);
+    if (!response || !response.ok || !response.source ||
+        (!response.source.remixContext && !response.source.preloadedState)) {
+      throw new Error("this tab does not expose a known guide payload");
     }
     const spec = parseGuideFromSource(response.source, response.url);
     const aliases = (await chrome.storage.sync.get("aliases")).aliases || {};

@@ -8,6 +8,8 @@ const PAGE_SOURCE_REQUEST = "d4filter:request-guide-source";
 const PAGE_SOURCE_RESPONSE = "d4filter:guide-source";
 
 function injectPageHook() {
+  if (window.__d4filterHookInstalled) return;
+  window.__d4filterHookInstalled = true;
   const script = document.createElement("script");
   script.textContent = `
     (function () {
@@ -37,11 +39,17 @@ window.addEventListener("message", (event) => {
   }
 });
 
+let pendingRequest = null;
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message && message.type === "d4filter:get-guide") {
     // Re-request in case the SPA updated its state after load.
     window.postMessage({ type: PAGE_SOURCE_REQUEST }, window.location.origin);
-    setTimeout(() => sendResponse({ ok: true, source: latestSource, url: location.href }), 150);
+    clearTimeout(pendingRequest);
+    pendingRequest = setTimeout(
+      () => sendResponse({ ok: true, source: latestSource, url: location.href }),
+      150
+    );
     return true;
   }
 });
