@@ -51,8 +51,8 @@ active_writer:
 active_reviewer:
 principal_thread:
 manager_thread:
-current_baton: B-012
-last_accepted_baton: B-012
+current_baton: B-013
+last_accepted_baton: B-013
 last_release_gate: none
 remote_status:
 ```
@@ -130,6 +130,7 @@ blockers: git_auth=local_commit_continue; dirty=pause_reconcile; push=local_only
 | B-010 | integration | executive thread (single writer) | accepted | CLI polish: `--json` structured output, `--cache-ttl`, friendly errors for bad URLs, missing files, unparseable pages, and fetch failures | focused CLI tests | error wording may need tuning |
 | B-011 | integration | executive thread (single writer) | accepted | Restore mobalytics live fetching and re-check prose curation against live guides | live smoke on maxroll/mobalytics URLs + header test | site bot filters change without notice |
 | B-012 | integration | executive thread (single writer) | accepted | Popup defaults to the guide's Endgame profile and remembers the last variant choice | node vm test of the selection helper | no real-browser click-through |
+| B-013 | integration | executive thread (single writer) | accepted | Refresh the saved mobalytics fixture from the live guide page | full pytest + extension parity against refreshed fixture | fixture may capture transient content |
 
 ## Acceptance Evidence
 
@@ -147,6 +148,7 @@ blockers: git_auth=local_commit_continue; dirty=pause_reconcile; push=local_only
 | B-010 | integration | 2026-10-10: `pytest` 82/82 pass. `--json` emits the generated filter (title, class, season, site, profiles, variant, gold, mirror, core, secondary, skills, unmatched, code) or the extraction summary with `--describe-only`; `--cache-ttl HOURS` controls cache freshness; non-guide URLs, missing files, pages without guide payloads, and fetch failures now exit with one-line errors instead of tracebacks. | No live fetch through the new URL validation path | Supported-host check is a substring test, deliberately permissive for maxroll/mobalytics subdomains |
 | B-011 | integration | 2026-10-10: `pytest` 83/83 pass. Live smoke showed mobalytics returning 403 to the previous header set; adding client hints (`sec-ch-ua`, `sec-ch-ua-mobile`, `sec-ch-ua-platform`) and a `Referer` restored a 200 with a ~970KB page, and a header test guards the regression. Live maxroll smoke (Dance of Knives, Arrow Storms) parses cleanly and the prose cue list held: the only new affix surfaced on the live mobalytics page, Maximum Evade Charge, came from an explicit "on our boots ... look for maximum evade charges" recommendation. | No in-game import; live mobalytics content has drifted from the saved fixture (new aspect text) so the fixture is now older than the site | Bot filtering is invisible and can change again; keep the live smoke in the baton loop |
 | B-012 | integration | 2026-10-10: `pytest` 84/84 pass. The popup now picks the Endgame planner profile by default when one exists, falls back to the last variant the user chose (stored in chrome.storage.sync) when that name is present in the new guide, and otherwise merges all profiles. A node vm harness loads popup.js with stubbed DOM/chrome objects and asserts the selection rules, including a stale saved variant falling back to Endgame. | No real-browser click-through; popup rendering still only simulated | Variant names are site-defined, so the Endgame match is a case-insensitive exact-name heuristic |
+| B-013 | integration | 2026-10-10: `pytest` 84/84 pass. Saved mobalytics fixture replaced with the current live page (920KB → 969KB, 81 → 90 parsed paragraphs). Parsed title/class/season/skills are unchanged; the only filter change is Maximum Evade Charge entering the secondary tier from an explicit boots recommendation, which confirms the cue logic against real drift. All extension parity tests still pass against the refreshed fixture. | No in-game import | A fixture refresh bakes in whatever the site serves that day; re-fetch when a parser bug is suspected |
 
 ## Open Decisions
 
@@ -164,14 +166,14 @@ blockers: git_auth=local_commit_continue; dirty=pause_reconcile; push=local_only
 
 ## Next Baton Candidate
 
-Hardening backlog (candidate batons B-013+):
+Hardening backlog (candidate batons B-014+):
 
 - In-game import verification of at least one maxroll-derived and one mobalytics-derived code (manual, user-assisted).
 - Confirm non-Warlock skill IDs so Rogue/Barbarian/etc. variant skills reach the filter instead of being dropped as unconfirmed.
-- Refresh the saved mobalytics fixture from the live page and keep a small live-smoke checklist in the baton loop.
+- Keep a short live-smoke checklist in the baton loop (one maxroll and one mobalytics URL, confirm parse and plausible tiers).
 
 ```text
-Define B-013 with objective, write scope, non-goals, risk, acceptance tier, and verification.
+Define B-014 with objective, write scope, non-goals, risk, acceptance tier, and verification.
 ```
 
 ## Persistent Goal
