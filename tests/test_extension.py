@@ -15,6 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 EXT = REPO_ROOT / "extension"
 MAXROLL_FIXTURE = REPO_ROOT / "tests" / "fixtures" / "maxroll_hell_fracture_warlock_guide.html"
 MOBALYTICS_FIXTURE = REPO_ROOT / "tests" / "fixtures" / "mobalytics_blazing_scream_warlock.html"
+ROGUE_FIXTURE = REPO_ROOT / "tests" / "fixtures" / "maxroll_dance_of_knives_rogue_guide.html"
 
 NODE_SCRIPT = """
 const path = require("path");
@@ -28,10 +29,10 @@ const parsers = require(path.join(ext, "lib", "guide-spec.js"));
 const mapper = require(path.join(ext, "lib", "mapper.js"));
 
 const out = {};
-for (const [key, [file, site]] of Object.entries(fixtures)) {
+for (const [key, [file, site, variant]] of Object.entries(fixtures)) {
   const html = fs.readFileSync(file, "utf8");
   const spec = site === "maxroll" ? parsers.parseMaxroll(html, "test") : parsers.parseMobalytics(html, "test");
-  const result = mapper.generateFromSpec(spec, {}, 2);
+  const result = mapper.generateFromSpec(spec, {}, 2, variant || null);
   out[key] = {
     site: spec.site,
     gameClass: spec.gameClass,
@@ -71,6 +72,8 @@ def js_results():
         {
             "maxroll": [str(MAXROLL_FIXTURE), "maxroll"],
             "mobalytics": [str(MOBALYTICS_FIXTURE), "mobalytics"],
+            "rogue": [str(ROGUE_FIXTURE), "maxroll", "Bossing"],
+            "rogue_merged": [str(ROGUE_FIXTURE), "maxroll"],
         }
     )
 
@@ -102,17 +105,28 @@ def test_js_mobalytics_parse_matches_python_shape(js_results):
     assert "Blazing Scream" in mb["skills"]
 
 
+def test_js_rogue_parse_matches_python_shape(js_results):
+    rg = js_results["rogue"]
+    assert rg["site"] == "maxroll"
+    assert rg["gameClass"] == "Rogue"
+    assert rg["season"] == 15
+    assert "Dance of Knives" in rg["skills"]
+    assert "Shadow Step" in js_results["rogue_merged"]["skills"]
+
+
 def test_extension_pipeline_matches_python_cli(js_results):
     from d4filter.cli import generate
     from d4filter.maxroll import parse_maxroll_guide
     from d4filter.mobalytics import parse_mobalytics_guide
 
     py_specs = {
-        "maxroll": parse_maxroll_guide(MAXROLL_FIXTURE.read_text(encoding="utf-8"), "test"),
-        "mobalytics": parse_mobalytics_guide(MOBALYTICS_FIXTURE.read_text(encoding="utf-8"), "test"),
+        "maxroll": (parse_maxroll_guide(MAXROLL_FIXTURE.read_text(encoding="utf-8"), "test"), None),
+        "mobalytics": (parse_mobalytics_guide(MOBALYTICS_FIXTURE.read_text(encoding="utf-8"), "test"), None),
+        "rogue": (parse_maxroll_guide(ROGUE_FIXTURE.read_text(encoding="utf-8"), "test"), "Bossing"),
+        "rogue_merged": (parse_maxroll_guide(ROGUE_FIXTURE.read_text(encoding="utf-8"), "test"), None),
     }
-    for key, spec in py_specs.items():
-        py = generate(spec, {})
+    for key, (spec, variant) in py_specs.items():
+        py = generate(spec, {}, variant=variant)
         js = js_results[key]
         assert sorted(js["core"]) == sorted(py["core"]), key
         assert sorted(js["secondary"]) == sorted(py["secondary"]), key
@@ -139,30 +153,48 @@ def test_js_richer_tiers_match_python(name, core, sec, skills, gold, cls):
     assert proc.stdout == py
 
 
-def test_popup_classic_script_flow():
+@pytest.mark.parametrize(
+    "fixture,variant,expected_core",
+    [
+        (MAXROLL_FIXTURE, None, "Attack Speed"),
+        (ROGUE_FIXTURE, "Bossing", "Damage Over Time Multiplier"),
+        (MOBALYTICS_FIXTURE, None, "Resource Cost Reduction"),
+    ],
+)
+def test_popup_classic_script_flow(fixture, variant, expected_core):
     """Simulate the popup: load libs as classic scripts in one shared scope
-    and generate from the maxroll fixture through globalThis.D4."""
+    and generate through globalThis.D4, including the variant selector path."""
     NODE_POPUP = """
 const fs = require("fs"), vm = require("vm");
-const ctx = { fs, TextEncoder, btoa: (s) => Buffer.from(s, "binary").toString("base64"), fixture: process.argv[2], ext: process.argv[1] };
+const ctx = {
+  fs, TextEncoder,
+  btoa: (s) => Buffer.from(s, "binary").toString("base64"),
+  fixture: process.argv[2], ext: process.argv[1], variant: process.argv[3] || null,
+};
 vm.createContext(ctx);
 for (const f of ["lib/core.js", "lib/tiers.js", "lib/guide-spec.js", "lib/mapper.js"]) {
   vm.runInContext(fs.readFileSync(ctx.ext + "/" + f, "utf8"), ctx, { filename: f });
 }
 const out = vm.runInContext(`
-  globalThis.D4.mapper.generateFromSpec(
-    globalThis.D4.parsers.parseMaxroll(fs.readFileSync(globalThis.fixture, "utf8"), "t"), {}, 2)
+  const html = fs.readFileSync(globalThis.fixture, "utf8");
+  const parsers = globalThis.D4.parsers;
+  const spec = html.includes("window.__remixContext")
+    ? parsers.parseMaxroll(html, "t")
+    : parsers.parseMobalytics(JSON.parse(
+        /window.__PRELOADED_STATE__\\\\s*=\\\\s*(\\\\{[\\\\s\\\\S]*?\\\\});?\\\\s*<\\\\/script>/.exec(html)[1]
+      ), "t");
+  globalThis.D4.mapper.generateFromSpec(spec, {}, 2, globalThis.variant)
 `, ctx);
-process.stdout.write(JSON.stringify({ code: out.code, core: out.core }));
+process.stdout.write(JSON.stringify({ code: out.code, core: out.core, skills: out.skills }));
 """
     proc = subprocess.run(
-        ["node", "-e", NODE_POPUP, str(EXT), str(MAXROLL_FIXTURE)],
+        ["node", "-e", NODE_POPUP, str(EXT), str(fixture), variant or ""],
         capture_output=True,
         text=True,
         check=True,
     )
     out = json.loads(proc.stdout)
-    assert "Attack Speed" in out["core"]
+    assert expected_core in out["core"]
     assert len(out["code"]) > 500
 
 

@@ -4,6 +4,8 @@
 // forwarded from content scripts.
 "use strict";
 
+const STAT_SECTION_HEADINGS = new Set(["important stats", "stats", "stat priority", "stat priorities"]);
+
 function collectEmbedTexts(node, embedType, out) {
   if (Array.isArray(node)) {
     for (const item of node) collectEmbedTexts(item, embedType, out);
@@ -36,7 +38,7 @@ function findImportantStats(root) {
         children.forEach((child, index) => {
           const texts = (child && Array.isArray(child.children) ? child.children : [])
             .map((c) => (c && typeof c.text === "string" ? c.text : ""));
-          if (texts.some((t) => t.trim().toLowerCase() === "important stats")) {
+          if (texts.some((t) => STAT_SECTION_HEADINGS.has(t.trim().toLowerCase()))) {
             const payload = index + 1 < children.length ? children[index + 1] : null;
             const bullets = payload && Array.isArray(payload.children) ? payload.children : [];
             for (const bullet of bullets) {
@@ -74,6 +76,7 @@ function parseMaxrollContext(context, sourceUrl) {
     profileNames: [],
     skills: [],
     skillIds: [],
+    variants: {},
     affixMentions: [],
     statLines: [],
     guideFilterCodes: [],
@@ -82,12 +85,18 @@ function parseMaxrollContext(context, sourceUrl) {
   for (const block of post.gutenbergBlock || []) {
     const profile = block.plannerProfile;
     if (!profile) continue;
+    const data = profile.data || {};
     if (!spec.gameClass) {
       spec.gameClass = profile.class || "";
-      const season = parseInt(profile.season, 10);
+      const season = parseInt(data.season, 10);
       spec.season = Number.isNaN(season) ? null : season;
     }
-    const data = profile.data || {};
+    if (spec.season === null) {
+      for (const tag of post.tags || []) {
+        const match = /Season\s+(\d+)/.exec((tag && tag.name) || "");
+        if (match) { spec.season = parseInt(match[1], 10); break; }
+      }
+    }
     const profiles = data.profiles || [];
     spec.profileNames = profiles.map((p) => p.name || "");
 
@@ -95,9 +104,16 @@ function parseMaxrollContext(context, sourceUrl) {
     const affixes = [];
     for (const prof of profiles) {
       const notes = prof.widgetNotes || {};
-      collectEmbedTexts(notes, "d4-skill", skills);
+      const profSkills = [];
+      collectEmbedTexts(notes, "d4-skill", profSkills);
       collectEmbedTexts(notes, "d4-affix", affixes);
-      spec.statLines.push(...findImportantStats(notes));
+      const profStats = findImportantStats(notes);
+      skills.push(...profSkills);
+      spec.statLines.push(...profStats);
+      spec.variants[prof.name || ""] = {
+        statLines: [...new Set(profStats)],
+        skills: [...new Set(profSkills)],
+      };
       for (const line of prof.skillBar || []) {
         if (typeof line === "string") spec.skillIds.push(line);
       }
@@ -148,15 +164,43 @@ function skillLabels(doc) {
   return [...new Set(labels)];
 }
 
+function blockTexts(root) {
+  const blocks = [];
+  const collect = (node) => {
+    if (Array.isArray(node)) {
+      for (const item of node) collect(item);
+      return;
+    }
+    if (!node || typeof node !== "object") return;
+    const kind = node.type;
+    if (kind === "paragraph" || kind === "listitem") {
+      const text = (node.children || [])
+        .map((child) => blobFromLexical(child))
+        .filter(Boolean)
+        .join(" ")
+        .split(/\s+/)
+        .filter(Boolean)
+        .join(" ");
+      if (text) blocks.push(text);
+      return;
+    }
+    if (kind === "list") {
+      for (const child of node.children || []) collect(child);
+      return;
+    }
+    for (const value of Object.values(node)) collect(value);
+  };
+  collect(root);
+  return blocks;
+}
+
 function statProse(doc) {
   const paragraphs = [];
   for (const node of doc.content || []) {
     const content = node.data || {};
     const simplified = content.simplifiedContent || {};
     const root = (simplified.value || {}).root;
-    if (root) paragraphs.push(blobFromLexical(root));
-    const descRoot = ((content.descriptionAssignedSkills || {}).value || {}).root;
-    if (descRoot) paragraphs.push(blobFromLexical(descRoot));
+    if (root) paragraphs.push(...blockTexts(root));
   }
   return [...new Set(paragraphs.filter((p) => p.trim()))];
 }

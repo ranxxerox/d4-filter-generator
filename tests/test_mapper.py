@@ -81,6 +81,28 @@ def test_map_stat_lines_classifies_core_and_secondary():
     assert "Maximum Life" in mapped.secondary
 
 
+def test_map_guide_lines_reads_prose_paragraphs():
+    from d4filter.mapper import map_guide_lines
+
+    mapped = map_guide_lines(
+        ["Just stack Damage over Time increases, Poison Damage, and Vulnerable Damage Multipliers."],
+        {},
+    )
+    assert set(mapped.core) == {
+        "Damage Over Time Multiplier",
+        "Poison Damage Multiplier",
+        "Vulnerable Damage Multiplier",
+    }
+    assert mapped.unmatched == []
+
+
+def test_map_guide_lines_keeps_unmatched_lines():
+    from d4filter.mapper import map_guide_lines
+
+    mapped = map_guide_lines(["qzzk"], {})
+    assert mapped.unmatched == ["qzzk"]
+
+
 def test_generate_from_fixture(spec):
     result = generate(spec, {})
     assert "Attack Speed" in result["core"]

@@ -35,7 +35,29 @@ const ABBREVIATIONS = {
   "lucky hit for resource": "lucky hit restore primary resource",
   "lucky hit restore resource": "lucky hit restore primary resource",
   "max life": "maximum life",
+  "damage over time": "damage over time multiplier",
+  "poison damage": "poison damage multiplier",
+  "cold damage": "cold damage multiplier",
+  "fire damage": "fire damage multiplier",
+  "holy damage": "holy damage multiplier",
+  "lightning damage": "lightning damage multiplier",
+  "physical damage": "physical damage multiplier",
+  "shadow damage": "shadow damage multiplier",
+  "vulnerable damage": "vulnerable damage multiplier",
+  "resource reduction": "resource cost reduction",
+  "critical strike damage": "critical strike damage multiplier",
 };
+
+const PROSE_CUES = [
+  "stack",
+  "temper",
+  "look for",
+  "prioritise",
+  "prioritize",
+  "affix",
+  "in other slots",
+  "roll",
+];
 
 const NUMBER_RE = /[\d.]+/g;
 const NOISE_CHARS = /[~+%+.!,></:;()"'’]/g;
@@ -83,7 +105,7 @@ function resolveStatLine(line, aliases) {
   const cleaned = normalize(line);
   for (const [phrase, target] of Object.entries(ABBREVIATIONS)) {
     const canonical = DB_BY_LOWER[target];
-    if (canonical && cleaned.includes(phrase)) return canonical;
+    if (canonical && new RegExp("\\b" + phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b").test(cleaned)) return canonical;
   }
   const exact = DB_BY_LOWER[cleaned];
   if (exact) return exact;
@@ -114,7 +136,7 @@ function mapProse(blob) {
   const result = { core: [], secondary: [], skills: [], unmatched: [] };
   let text = blob.toLowerCase();
   for (const [phrase, target] of Object.entries(ABBREVIATIONS)) {
-    text = text.replace(new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "g"), target);
+    text = text.replace(new RegExp("\\b" + phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "g"), target);
   }
   for (const [lower, name] of Object.entries(DB_BY_LOWER)) {
     if (text.includes(lower)) {
@@ -122,6 +144,33 @@ function mapProse(blob) {
     }
   }
   return result;
+}
+
+function mapGuideLines(statLines, aliases) {
+  const result = { core: [], secondary: [], skills: [], unmatched: [] };
+  for (const line of statLines) {
+    let matched = false;
+    const name = resolveStatLine(line, aliases || {});
+    if (name) {
+      (classify(name) === "core" ? result.core : result.secondary).push(name);
+      matched = true;
+    }
+    const prose = mapProse(line);
+    if (prose.core.length || prose.secondary.length) {
+      result.core.push(...prose.core);
+      result.secondary.push(...prose.secondary);
+      matched = true;
+    }
+    if (!matched) result.unmatched.push(line);
+  }
+  return result;
+}
+
+function mapCuratedProse(paragraphs) {
+  const kept = paragraphs.filter((p) =>
+    PROSE_CUES.some((cue) => new RegExp("\\b" + cue.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b").test(p.toLowerCase()))
+  );
+  return mapProse(kept.join(" "));
 }
 
 function mapSkills(skillNames) {
@@ -138,16 +187,24 @@ function mapSkills(skillNames) {
   return result;
 }
 
-function generateFromSpec(spec, aliases, goldN) {
+function generateFromSpec(spec, aliases, goldN, variant) {
   goldN = goldN || 2;
   const tiers =
     typeof module !== "undefined" && module.exports
       ? require("./tiers.js")
       : globalThis.D4.tiers;
+  let statLines = spec.statLines || [];
+  let skillNames = spec.skills || [];
+  if (variant) {
+    const payload = (spec.variants || {})[variant];
+    if (!payload) throw new Error(`no variant named ${variant}`);
+    statLines = payload.statLines || [];
+    skillNames = payload.skills || [];
+  }
   const statMap = spec.site === "mobalytics"
-    ? mapProse(spec.statLines.join(" "))
-    : mapStatLines(spec.statLines, aliases || {});
-  const skillMap = mapSkills(spec.skills);
+    ? mapCuratedProse(statLines)
+    : mapGuideLines(statLines, aliases || {});
+  const skillMap = mapSkills(skillNames);
 
   const uniq = (arr) => [...new Set(arr)];
   const coreStats = uniq(statMap.core);
@@ -162,14 +219,14 @@ function generateFromSpec(spec, aliases, goldN) {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     CORE_AFFIXES, normalize, resolveStatLine, classify,
-    mapStatLines, mapProse, mapSkills, generateFromSpec, DB_BY_LOWER,
+    mapStatLines, mapGuideLines, mapCuratedProse, mapProse, mapSkills, generateFromSpec, DB_BY_LOWER,
   };
 }
 if (typeof globalThis !== "undefined") {
   globalThis.D4 = globalThis.D4 || {};
   globalThis.D4.mapper = {
     CORE_AFFIXES, normalize, resolveStatLine, classify,
-    mapStatLines, mapProse, mapSkills, generateFromSpec, DB_BY_LOWER,
+    mapStatLines, mapGuideLines, mapCuratedProse, mapProse, mapSkills, generateFromSpec, DB_BY_LOWER,
   };
 }
 })();

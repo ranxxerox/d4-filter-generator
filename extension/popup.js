@@ -8,6 +8,7 @@ const summaryEl = document.getElementById("summary");
 const codeEl = document.getElementById("code");
 const copyEl = document.getElementById("copy");
 const goldEl = document.getElementById("gold");
+const variantEl = document.getElementById("variant");
 
 chrome.storage.sync.get(["gold"], (data) => {
   if (data.gold) goldEl.value = String(data.gold);
@@ -15,6 +16,9 @@ chrome.storage.sync.get(["gold"], (data) => {
 goldEl.addEventListener("change", () => {
   chrome.storage.sync.set({ gold: parseInt(goldEl.value, 10) });
 });
+
+let lastSpec = null;
+let lastAliases = {};
 
 function readGuideSource(tabId) {
   return chrome.scripting.executeScript({
@@ -43,9 +47,37 @@ function parseGuideFromSource(source, url) {
   return null;
 }
 
-function render(spec, result) {
+function renderVariantOptions(spec) {
+  const names = Object.keys(spec.variants || {});
+  variantEl.innerHTML = "";
+  if (names.length <= 1) {
+    variantEl.closest("label").style.display = "none";
+    return;
+  }
+  variantEl.closest("label").style.display = "flex";
+  for (const name of ["(merge all)", ...names]) {
+    const option = document.createElement("option");
+    option.value = name === "(merge all)" ? "" : name;
+    option.textContent = name;
+    variantEl.appendChild(option);
+  }
+}
+
+function regenerate() {
+  if (!lastSpec) return;
+  const goldN = parseInt(goldEl.value, 10);
+  const variant = variantEl.value || null;
+  const result = globalThis.D4.mapper.generateFromSpec(lastSpec, lastAliases, goldN, variant);
+  render(lastSpec, result, variant);
+}
+
+variantEl.addEventListener("change", regenerate);
+goldEl.addEventListener("change", regenerate);
+
+function render(spec, result, variant) {
   const lines = [
     `${spec.title || "(untitled)"} — ${spec.gameClass || "?"} S${spec.season ?? "?"}`,
+    `Variant: ${variant || "all profiles merged"}`,
     `Core: ${result.core.join(", ") || "-"}`,
     `Secondary: ${result.secondary.join(", ") || "-"}`,
     `Skills: ${result.skills.join(", ") || "-"}`,
@@ -82,11 +114,11 @@ document.getElementById("generate").addEventListener("click", async () => {
         `no guide payload on this tab (${detail}). Reload the guide page once, then click Generate again.`
       );
     }
-    const aliases = (await chrome.storage.sync.get("aliases")).aliases || {};
-    const goldN = parseInt(goldEl.value, 10);
-    const result = globalThis.D4.mapper.generateFromSpec(spec, aliases, goldN);
+    lastSpec = spec;
+    lastAliases = (await chrome.storage.sync.get("aliases")).aliases || {};
+    renderVariantOptions(spec);
+    regenerate();
     statusEl.textContent = "";
-    render(spec, result);
   } catch (error) {
     statusEl.textContent = `Error: ${error.message}`;
   }

@@ -16,6 +16,8 @@ from .data import DB, SKILLS
 
 FUZZY_THRESHOLD = 0.72
 
+_DB_BY_LOWER = {name.lower(): name for name in DB}
+
 _NUMBER_RE = re.compile(r"[\d.]+")
 _NOISE_CHARS = re.compile(r"[~+%+.!,></:;()\"'\u2018\u2019]")
 
@@ -41,7 +43,29 @@ _ABBREVIATIONS = {
     "lucky hit for resource": "lucky hit restore primary resource",
     "lucky hit restore resource": "lucky hit restore primary resource",
     "max life": "maximum life",
+    "damage over time": "damage over time multiplier",
+    "poison damage": "poison damage multiplier",
+    "cold damage": "cold damage multiplier",
+    "fire damage": "fire damage multiplier",
+    "holy damage": "holy damage multiplier",
+    "lightning damage": "lightning damage multiplier",
+    "physical damage": "physical damage multiplier",
+    "shadow damage": "shadow damage multiplier",
+    "vulnerable damage": "vulnerable damage multiplier",
+    "resource reduction": "resource cost reduction",
+    "critical strike damage": "critical strike damage multiplier",
 }
+
+PROSE_CUES = (
+    "stack",
+    "temper",
+    "look for",
+    "prioritise",
+    "prioritize",
+    "affix",
+    "in other slots",
+    "roll",
+)
 
 
 @dataclass
@@ -96,8 +120,9 @@ def resolve_stat_line(line: str, alias_table: dict[str, str]) -> tuple[str | Non
     cleaned = _normalize(line)
 
     for phrase, target in _ABBREVIATIONS.items():
-        if phrase in cleaned and target in DB:
-            return target, "abbreviation"
+        canonical = _DB_BY_LOWER.get(target)
+        if canonical and re.search(rf"\b{re.escape(phrase)}\b", cleaned):
+            return canonical, "abbreviation"
 
     exact = next((name for name in DB if name.lower() == cleaned), None)
     if exact:
@@ -149,6 +174,44 @@ def map_stat_lines(
     return mapping
 
 
+def map_guide_lines(stat_lines: list[str], alias_table: dict[str, str]) -> Mapping:
+    """Map maxroll note lines, which mix clean affix bullets with prose.
+
+    Each line goes through the normal resolution ladder and is also scanned
+    for verbatim DB names, so a prose paragraph contributes every affix it
+    mentions instead of only the first abbreviation hit. A line that yields
+    nothing by either route stays unmatched for interactive resolution.
+    """
+    mapping = Mapping()
+    for line in stat_lines:
+        matched = False
+        db_name, _ = resolve_stat_line(line, alias_table)
+        if db_name:
+            role, db_name = _classify(db_name)
+            (mapping.core if role == "core" else mapping.secondary).append(db_name)
+            matched = True
+        prose = map_prose(line)
+        if prose.core or prose.secondary:
+            mapping.core.extend(prose.core)
+            mapping.secondary.extend(prose.secondary)
+            matched = True
+        if not matched:
+            mapping.unmatched.append(line)
+    return mapping
+
+
+def map_curated_prose(paragraphs: list[str]) -> Mapping:
+    """Map only prose that reads like affix advice.
+
+    Guides mention stats while describing skills, gems, and item effects
+    ("provides damage reduction", "25% lucky hit chance"). Those mentions are
+    not gear goals, so a paragraph must contain a recommendation cue before
+    its DB names count.
+    """
+    kept = [p for p in paragraphs if any(re.search(rf"\b{re.escape(cue)}\b", p.lower()) for cue in PROSE_CUES)]
+    return map_prose(" ".join(kept))
+
+
 def map_skills(skill_names: list[str]) -> Mapping:
     mapping = Mapping()
     for name in skill_names:
@@ -166,7 +229,7 @@ def map_prose(blob: str) -> Mapping:
     mapping = Mapping()
     text = blob.lower()
     for phrase, target in _ABBREVIATIONS.items():
-        text = re.sub(rf"{re.escape(phrase)}\b", target, text)
+        text = re.sub(rf"\b{re.escape(phrase)}\b", target, text)
     for name in DB:
         if name.lower() in text:
             role, db_name = _classify(name)

@@ -46,6 +46,38 @@ def test_map_prose_expands_abbreviations():
     assert "Lucky Hit Restore Primary Resource" in mapped.secondary
 
 
+def test_stat_blocks_exclude_skill_descriptions(spec):
+    blob = " | ".join(spec.stat_lines).lower()
+    assert "stack crit chance" in blob
+    assert "damage reduction and fortify" not in blob
+
+
+def test_curated_prose_ignores_incidental_mentions():
+    from d4filter.mapper import map_curated_prose
+
+    mapped = map_curated_prose(
+        [
+            "Dark Prison provides damage reduction and fortify",
+            "Blazing Scream has a 25% lucky hit chance",
+            "Stack Crit Chance, Crit Damage Multiplier and Max Life",
+        ]
+    )
+    assert "Damage Reduction" not in mapped.secondary
+    assert "Lucky Hit Chance" not in mapped.secondary
+    assert "Critical Strike Chance" in mapped.core
+    assert "Maximum Life" in mapped.secondary
+
+
+def test_generate_from_mobalytics_curates_false_positives(spec):
+    result = generate(spec, {})
+    assert "Resource Cost Reduction" in result["core"]
+    assert "Fire Resistance" in result["secondary"]
+    assert "Maximum Life" in result["secondary"]
+    assert "Lucky Hit Restore Primary Resource" in result["secondary"]
+    for false_positive in ("Armor", "Willpower", "Damage Reduction", "Lucky Hit Chance"):
+        assert false_positive not in result["secondary"]
+
+
 def test_generate_from_mobalytics(spec):
     result = generate(spec, {})
     assert "Blazing Scream" in result["skills"]

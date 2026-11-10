@@ -8,11 +8,17 @@ from d4filter.maxroll import parse_maxroll_guide, parse_remix_context
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = REPO_ROOT / "tests" / "fixtures" / "maxroll_hell_fracture_warlock_guide.html"
+ROGUE_FIXTURE = REPO_ROOT / "tests" / "fixtures" / "maxroll_dance_of_knives_rogue_guide.html"
 
 
 @pytest.fixture(scope="module")
 def spec():
     return parse_maxroll_guide(FIXTURE.read_text(encoding="utf-8"), source_url="fixture.html")
+
+
+@pytest.fixture(scope="module")
+def rogue_spec():
+    return parse_maxroll_guide(ROGUE_FIXTURE.read_text(encoding="utf-8"), source_url="rogue.html")
 
 
 def test_parses_title_class_season(spec):
@@ -72,6 +78,54 @@ def test_cli_print_guide_filter(capsys):
     assert main(["--file", str(FIXTURE), "--print-guide-filter", "maxroll light"]) == 0
     code = capsys.readouterr().out.strip()
     assert len(code) > 500
+
+
+def test_parses_planner_profiles_as_variants(rogue_spec):
+    assert rogue_spec.game_class == "Rogue"
+    assert rogue_spec.season == 15
+    assert {"Starter", "Endgame", "Bossing", "Pushing"} <= set(rogue_spec.variants)
+    assert "Shadow Step" in rogue_spec.variants["Starter"]["skills"]
+    assert "Shadow Step" not in rogue_spec.variants["Bossing"]["skills"]
+
+
+def test_prose_stat_paragraphs_map_to_multipliers(rogue_spec):
+    from d4filter.cli import generate
+
+    merged = generate(rogue_spec, {})
+    assert set(merged["core"]) == {
+        "Damage Over Time Multiplier",
+        "Poison Damage Multiplier",
+        "Vulnerable Damage Multiplier",
+    }
+
+
+def test_variant_narrows_stats_and_skills(rogue_spec):
+    from d4filter.cli import generate
+
+    bossing = generate(rogue_spec, {}, variant="Bossing")
+    merged = generate(rogue_spec, {})
+    assert set(bossing["core"]) == set(merged["core"])
+    assert set(bossing["secondary"]) == set(merged["secondary"])
+    assert rogue_spec.variants["Bossing"]["skills"] != rogue_spec.variants["Endgame"]["skills"]
+    assert "Preparation" in rogue_spec.variants["Endgame"]["skills"]
+    assert "Preparation" not in rogue_spec.variants["Bossing"]["skills"]
+    # Rogue skills are unconfirmed placeholders, so none reach the filter yet.
+    assert bossing["skills"] == merged["skills"] == []
+
+
+def test_unknown_variant_errors(rogue_spec):
+    from d4filter.cli import generate
+
+    with pytest.raises(SystemExit) as excinfo:
+        generate(rogue_spec, {}, variant="Nope")
+    assert "available:" in str(excinfo.value)
+
+
+def test_cli_variant_output(capsys):
+    assert main(["--file", str(ROGUE_FIXTURE), "--variant", "Bossing"]) == 0
+    out = capsys.readouterr().out
+    assert "Variant:  Bossing" in out
+    assert "Shadow Step" not in out.split("Skills:")[1].split("\n")[0]
 
 
 def test_fetcher_caches(monkeypatch, tmp_path):

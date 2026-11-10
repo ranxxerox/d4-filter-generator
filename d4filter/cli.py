@@ -12,7 +12,7 @@ from pathlib import Path
 
 from .data import SKILLS
 from .fetcher import fetch_cached
-from .mapper import CORE_AFFIXES, map_prose, map_skills, map_stat_lines
+from .mapper import CORE_AFFIXES, map_curated_prose, map_guide_lines, map_skills
 from .mobalytics import parse_mobalytics_guide
 from .maxroll import parse_maxroll_guide
 
@@ -52,6 +52,7 @@ def describe(spec) -> str:
         f"URL:      {spec.source_url}",
         f"Class:    {spec.game_class or '(unknown)'} | Season {spec.season}",
         f"Profiles: {', '.join(spec.profile_names) or '(none)'}",
+        f"Variants: {', '.join((spec.variants or {}).keys()) or '(single)'}",
         "",
     ]
     confirmed, unconfirmed = _skill_status(spec)
@@ -103,11 +104,29 @@ def _interactive_resolve(unmatched: list[str]) -> dict[str, str]:
     return resolved
 
 
-def generate(spec, alias_table: dict[str, str], interactive: bool = False, gold_n: int = 2, mirror: bool = False):
-    """Combine guide extraction, mapping, and the mirror rule builder."""
-    stats = map_stat_lines(spec.stat_lines, alias_table) if spec.site == "maxroll" else map_prose(" ".join(spec.stat_lines))
+def generate(spec, alias_table: dict[str, str], interactive: bool = False, gold_n: int = 2, mirror: bool = False, variant: str | None = None):
+    """Combine guide extraction, mapping, and the rule builder.
+
+    ``variant`` narrows extraction to one planner profile (e.g. "Bossing");
+    the default merges all profiles.
+    """
+    stat_lines = spec.stat_lines
+    skill_names = spec.skills
+    if variant:
+        payload = (spec.variants or {}).get(variant)
+        if payload is None:
+            available = ", ".join((spec.variants or {}).keys()) or "none"
+            raise SystemExit(f"error: no variant named {variant!r}; available: {available}")
+        stat_lines = payload.get("stat_lines", [])
+        skill_names = payload.get("skills", [])
+
+    stats = (
+        map_guide_lines(stat_lines, alias_table)
+        if spec.site == "maxroll"
+        else map_curated_prose(stat_lines)
+    )
     if interactive and stats.unmatched:
-        stats.skills.extend(map_skills(spec.skills).skills)
+        stats.skills.extend(map_skills(skill_names).skills)
         resolved = _interactive_resolve(stats.unmatched)
         for line, db_name in resolved.items():
             if db_name in CORE_AFFIXES:
@@ -116,7 +135,7 @@ def generate(spec, alias_table: dict[str, str], interactive: bool = False, gold_
                 stats.secondary.append(db_name)
         stats.unmatched = [line for line in stats.unmatched if line not in resolved]
     else:
-        skills = map_skills(spec.skills)
+        skills = map_skills(skill_names)
         stats.skills.extend(skills.skills)
 
     # Dedupe while preserving order (Set semantics of the web tool).
@@ -154,6 +173,7 @@ def main(argv=None) -> int:
     parser.add_argument("--interactive", action="store_true", help="prompt for unmatched stats")
     parser.add_argument("--gold", type=int, default=2, help="core stats required for gold tier (default 2)")
     parser.add_argument("--mirror", action="store_true", help="use the web tool's exact 8-rule stack instead of the richer tiers")
+    parser.add_argument("--variant", help="restrict extraction to one planner profile (e.g. 'Bossing'); default merges all")
     parser.add_argument(
         "--describe-only",
         action="store_true",
@@ -179,10 +199,16 @@ def main(argv=None) -> int:
         print(describe(spec))
         return 0
 
-    result = generate(spec, {}, interactive=args.interactive, gold_n=args.gold, mirror=args.mirror)
+    result = generate(spec, {}, interactive=args.interactive, gold_n=args.gold, mirror=args.mirror, variant=args.variant)
 
     print(f"Filter:   {spec.title or 'My Loot Filter'}")
     print(f"Class:    {spec.game_class or '(unknown)'} | Season {spec.season}")
+    variant_names = list((spec.variants or {}).keys())
+    if args.variant:
+        others = ", ".join(n for n in variant_names if n != args.variant) or "-"
+        print(f"Variant:  {args.variant} (other variants: {others})")
+    elif variant_names:
+        print(f"Variants: merged ({', '.join(variant_names)}); use --variant to narrow")
     print(f"Core:     {', '.join(result['core']) or '-'}")
     print(f"Second.:  {', '.join(result['secondary']) or '-'}")
     print(f"Skills:   {', '.join(result['skills']) or '-'}")

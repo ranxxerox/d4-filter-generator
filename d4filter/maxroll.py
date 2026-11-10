@@ -36,6 +36,7 @@ class GuideSpec:
     affix_mentions: list[str] = field(default_factory=list)
     stat_lines: list[str] = field(default_factory=list)
     guide_filter_codes: list[tuple[str, str]] = field(default_factory=list)
+    variants: dict = field(default_factory=dict)
 
 
 def parse_remix_context(html: str) -> dict:
@@ -55,6 +56,9 @@ def _collect_embed_texts(node, embed_type: str, out: list[str]) -> None:
     elif isinstance(node, list):
         for item in node:
             _collect_embed_texts(item, embed_type, out)
+
+
+STAT_SECTION_HEADINGS = {"important stats", "stats", "stat priority", "stat priorities"}
 
 
 def _find_important_stats(root) -> list[str]:
@@ -87,7 +91,7 @@ def _find_important_stats(root) -> list[str]:
                         for c in (child.get("children", []) if isinstance(child, dict) else [])
                         if isinstance(c, dict)
                     ]
-                    if any(t.strip().lower() == "important stats" for t in texts):
+                    if any(t.strip().lower() in STAT_SECTION_HEADINGS for t in texts):
                         payload = children[index + 1] if index + 1 < len(children) else None
                         bullets = payload.get("children", []) if isinstance(payload, dict) else []
                         for bullet in bullets:
@@ -122,23 +126,38 @@ def parse_maxroll_guide(html: str, source_url: str = "") -> GuideSpec:
         profile = block.get("plannerProfile")
         if not profile:
             continue
+        data = profile.get("data", {})
         if not spec.game_class:
             spec.game_class = profile.get("class", "") or ""
             try:
-                spec.season = int(profile.get("season"))
+                spec.season = int(data.get("season"))
             except (TypeError, ValueError):
-                spec.season = None
-        data = profile.get("data", {})
+                pass
+        if spec.season is None:
+            for tag in post.get("tags", []) or []:
+                name = tag.get("name", "") if isinstance(tag, dict) else ""
+                match = re.search(r"Season\s+(\d+)", name)
+                if match:
+                    spec.season = int(match.group(1))
+                    break
         profiles = data.get("profiles", [])
         spec.profile_names = [p.get("name", "") for p in profiles]
 
         skills: list[str] = []
         affixes: list[str] = []
+        variants: dict[str, dict] = {}
         for prof in profiles:
             notes = prof.get("widgetNotes", {})
-            _collect_embed_texts(notes, "d4-skill", skills)
+            prof_skills: list[str] = []
+            _collect_embed_texts(notes, "d4-skill", prof_skills)
             _collect_embed_texts(notes, "d4-affix", affixes)
-            spec.stat_lines.extend(_find_important_stats(notes))
+            prof_stats = _find_important_stats(notes)
+            skills.extend(prof_skills)
+            spec.stat_lines.extend(prof_stats)
+            variants[prof.get("name", "")] = {
+                "stat_lines": prof_stats,
+                "skills": prof_skills,
+            }
 
         for prof in profiles:
             for line in prof.get("skillBar", []):
@@ -149,6 +168,13 @@ def parse_maxroll_guide(html: str, source_url: str = "") -> GuideSpec:
         spec.skills = [s for s in skills if not (s in seen or seen.add(s))]
         spec.affix_mentions = sorted(set(affixes))
         spec.stat_lines = list(dict.fromkeys(spec.stat_lines))
+        spec.variants.update({
+            name: {
+                "stat_lines": list(dict.fromkeys(payload["stat_lines"])),
+                "skills": list(dict.fromkeys(payload["skills"])),
+            }
+            for name, payload in variants.items()
+        })
 
         for loot in data.get("lootFilters", []):
             name = loot.get("name", "")

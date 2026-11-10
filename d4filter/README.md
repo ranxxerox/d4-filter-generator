@@ -25,6 +25,9 @@ python3 -m venv .venv
 .venv/bin/d4filter <url> --gold 3
 .venv/bin/d4filter <url> --mirror
 
+# narrow to one planner profile instead of merging every profile's stats
+.venv/bin/d4filter <url> --variant Bossing
+
 # print one of the guide's own filter codes instead of generating
 .venv/bin/d4filter <url> --print-guide-filter "Maxroll Light"
 ```
@@ -39,8 +42,11 @@ python3 -m venv .venv
      `diablo4State.apollo.graphqlV2.queries` (Lexical rich text, skill
      labels, class/season tags).
 3. **Map** statistics and skills onto the verified affix database in
-   `d4filter/data.py` (exact → alias → normalized → fuzzy; skills require
-   confirmed IDs only).
+   `d4filter/data.py` (exact → alias → normalized → fuzzy, plus a verbatim
+   DB-name scan for prose paragraphs; skills require confirmed IDs only).
+   Prose only counts when it reads like advice ("stack", "temper", "look
+   for", "affix"), so skill, gem, and item descriptions that merely mention
+   a stat do not become filter rules.
 4. **Encode** the protobuf filter (varint/field encoders in
    `d4filter/encoder.py`) and print it base64-encoded.
 

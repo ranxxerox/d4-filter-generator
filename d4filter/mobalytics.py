@@ -93,6 +93,40 @@ def _skill_labels(doc: dict) -> list[str]:
     return [s for s in labels if not (s in seen or seen.add(s))]
 
 
+def _block_texts(root) -> list[str]:
+    """Split a Lexical root into paragraph/list-item sized blocks.
+
+    Flattening a whole section loses the boundaries between headings and
+    paragraphs, which makes it impossible to tell stat advice from a skill
+    or gem description. Blocks keep that structure.
+    """
+    blocks: list[str] = []
+
+    def collect(node) -> None:
+        if isinstance(node, dict):
+            kind = node.get("type")
+            if kind in ("paragraph", "listitem"):
+                text = " ".join(
+                    part for part in (_blob_from_lexical(child) for child in node.get("children") or []) if part
+                )
+                text = " ".join(text.split())
+                if text:
+                    blocks.append(text)
+                return
+            if kind == "list":
+                for child in node.get("children") or []:
+                    collect(child)
+                return
+            for value in node.values():
+                collect(value)
+        elif isinstance(node, list):
+            for item in node:
+                collect(item)
+
+    collect(root)
+    return blocks
+
+
 def _stat_prose(doc: dict) -> list[str]:
     paragraphs: list[str] = []
 
@@ -104,12 +138,7 @@ def _stat_prose(doc: dict) -> list[str]:
         value = (simplified.get("value") or {})
         root = value.get("root")
         if isinstance(root, dict):
-            paragraphs.append(_blob_from_lexical(root))
-
-        description = (content.get("descriptionAssignedSkills") or {}).get("value") or {}
-        desc_root = description.get("root")
-        if isinstance(desc_root, dict):
-            paragraphs.append(_blob_from_lexical(desc_root))
+            paragraphs.extend(_block_texts(root))
 
     return list(dict.fromkeys(p for p in paragraphs if p.strip()))
 
