@@ -51,8 +51,8 @@ active_writer:
 active_reviewer:
 principal_thread:
 manager_thread:
-current_baton: B-010
-last_accepted_baton: B-010
+current_baton: B-011
+last_accepted_baton: B-011
 last_release_gate: none
 remote_status:
 ```
@@ -128,6 +128,7 @@ blockers: git_auth=local_commit_continue; dirty=pause_reconcile; push=local_only
 | B-008 | integration | executive thread (single writer) | accepted | Enforce index.html as the single source of truth for affix IDs, skill IDs, rarity/visibility constants, and colors with a parity test | pytest data-parity module | test could over-constrain harmless formatting |
 | B-009 | integration | executive thread (single writer) | accepted | Map skill-rank goals in guide notes to confirmed skills, including slash shorthand | focused mapper tests + extension byte parity | shorthand parsing could over-match prose |
 | B-010 | integration | executive thread (single writer) | accepted | CLI polish: `--json` structured output, `--cache-ttl`, friendly errors for bad URLs, missing files, unparseable pages, and fetch failures | focused CLI tests | error wording may need tuning |
+| B-011 | integration | executive thread (single writer) | accepted | Restore mobalytics live fetching and re-check prose curation against live guides | live smoke on maxroll/mobalytics URLs + header test | site bot filters change without notice |
 
 ## Acceptance Evidence
 
@@ -143,6 +144,7 @@ blockers: git_auth=local_commit_continue; dirty=pause_reconcile; push=local_only
 | B-008 | integration | 2026-10-10: `pytest` 72/72 pass. New `tests/test_data_parity.py` parses index.html's data block and fails if `d4filter/data.py` differs in affix order/IDs, skill rows, visibility/rarity constants, item-type IDs, or packed colors; it also rejects duplicate affix names and enforces that unconfirmed skills carry null IDs. Stale "77 confirmed IDs" comments corrected to the actual 62 in index.html and AGENTS.md. | Extension core.js parity is already covered by its own staleness test, so this slice only adds the Python copy guard | The test parses JS with regexes, so a reformat that changes key order would fail loudly rather than silently |
 | B-009 | integration | 2026-10-10: `pytest` 75/75 pass. Rank goals in notes now map to confirmed skills: the warlock fixture gains Abyss Skills from "+15 Ranks to Abyss Skills" and no longer reports that line as an unmatched stat, and the mobalytics fixture gains Hellfire Skills, Demonology Skills, and All Skills from "Ranks to Hellfire/Demonology/All Skills". Matching is exact against SKILLS so prose cannot pull in skills, unconfirmed entries are dropped, and JS mirrors the parser for byte-identical codes. | No live guide fetch | Slash shorthand expansion assumes the trailing noun ("Skills") applies to earlier segments; unusual phrasings will simply not map |
 | B-010 | integration | 2026-10-10: `pytest` 82/82 pass. `--json` emits the generated filter (title, class, season, site, profiles, variant, gold, mirror, core, secondary, skills, unmatched, code) or the extraction summary with `--describe-only`; `--cache-ttl HOURS` controls cache freshness; non-guide URLs, missing files, pages without guide payloads, and fetch failures now exit with one-line errors instead of tracebacks. | No live fetch through the new URL validation path | Supported-host check is a substring test, deliberately permissive for maxroll/mobalytics subdomains |
+| B-011 | integration | 2026-10-10: `pytest` 83/83 pass. Live smoke showed mobalytics returning 403 to the previous header set; adding client hints (`sec-ch-ua`, `sec-ch-ua-mobile`, `sec-ch-ua-platform`) and a `Referer` restored a 200 with a ~970KB page, and a header test guards the regression. Live maxroll smoke (Dance of Knives, Arrow Storms) parses cleanly and the prose cue list held: the only new affix surfaced on the live mobalytics page, Maximum Evade Charge, came from an explicit "on our boots ... look for maximum evade charges" recommendation. | No in-game import; live mobalytics content has drifted from the saved fixture (new aspect text) so the fixture is now older than the site | Bot filtering is invisible and can change again; keep the live smoke in the baton loop |
 
 ## Open Decisions
 
@@ -160,15 +162,15 @@ blockers: git_auth=local_commit_continue; dirty=pause_reconcile; push=local_only
 
 ## Next Baton Candidate
 
-Hardening backlog (candidate batons B-011+):
+Hardening backlog (candidate batons B-012+):
 
 - In-game import verification of at least one maxroll-derived and one mobalytics-derived code (manual, user-assisted).
 - Confirm non-Warlock skill IDs so Rogue/Barbarian/etc. variant skills reach the filter instead of being dropped as unconfirmed.
-- Re-check the prose cue list against two or three more live guides from each site.
+- Refresh the saved mobalytics fixture from the live page and keep a small live-smoke checklist in the baton loop.
 - Consider defaulting the popup variant selector to the guide's endgame profile when one exists.
 
 ```text
-Define B-011 with objective, write scope, non-goals, risk, acceptance tier, and verification.
+Define B-012 with objective, write scope, non-goals, risk, acceptance tier, and verification.
 ```
 
 ## Persistent Goal

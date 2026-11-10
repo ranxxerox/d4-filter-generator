@@ -241,3 +241,34 @@ def test_fetcher_ttl_expiry(monkeypatch, tmp_path):
     assert len(calls) == 1
     fetch_cached("https://example.com/guide", ttl_seconds=0)
     assert len(calls) == 2
+
+
+def test_fetcher_sends_browser_client_hints(monkeypatch, tmp_path):
+    monkeypatch.setattr("d4filter.fetcher.cache_dir", lambda: tmp_path)
+    captured = {}
+
+    def fake_urlopen(request, timeout):
+        class R:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return None
+
+            def read(self):
+                return b"<html>payload</html>"
+
+        return R()
+
+    urllib_mod = __import__("urllib.request", fromlist=["urlopen"])
+    monkeypatch.setattr(urllib_mod, "urlopen", fake_urlopen)
+    monkeypatch.setattr(
+        "urllib.request.Request",
+        lambda url, headers=None: captured.update(headers or {}) or (url, headers),
+    )
+
+    fetch_cached("https://mobalytics.gg/diablo-4/builds/example")
+    assert captured["Referer"] == "https://www.google.com/"
+    assert captured["sec-ch-ua"].startswith('"Chromium"')
+    assert captured["sec-ch-ua-mobile"] == "?0"
+    assert captured["sec-ch-ua-platform"] == '"macOS"'

@@ -38,7 +38,8 @@ def fetch_cached(url: str, use_cache: bool = True, ttl_seconds: float | None = N
     import urllib.request
 
     # Mobalytics (and possibly other guide hosts) reject minimal CLI UAs;
-    # these headers reproduce what a plain browser session sends.
+    # these headers reproduce what a plain browser session sends. The
+    # client-hint trio and Referer are required to get past its bot filter.
     headers = {
         "User-Agent": (
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
@@ -47,10 +48,14 @@ def fetch_cached(url: str, use_cache: bool = True, ttl_seconds: float | None = N
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
         "Accept-Encoding": "identity",
+        "Referer": "https://www.google.com/",
         "Sec-Fetch-Dest": "document",
         "Sec-Fetch-Mode": "navigate",
         "Sec-Fetch-Site": "none",
         "Upgrade-Insecure-Requests": "1",
+        "sec-ch-ua": '"Chromium";v="126", "Google Chrome";v="126", "Not-A.Brand";v="99"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"macOS"',
     }
     request = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(request, timeout=30) as response:
