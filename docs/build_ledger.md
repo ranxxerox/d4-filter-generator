@@ -51,8 +51,8 @@ active_writer:
 active_reviewer:
 principal_thread:
 manager_thread:
-current_baton: B-011
-last_accepted_baton: B-011
+current_baton: B-012
+last_accepted_baton: B-012
 last_release_gate: none
 remote_status:
 ```
@@ -129,6 +129,7 @@ blockers: git_auth=local_commit_continue; dirty=pause_reconcile; push=local_only
 | B-009 | integration | executive thread (single writer) | accepted | Map skill-rank goals in guide notes to confirmed skills, including slash shorthand | focused mapper tests + extension byte parity | shorthand parsing could over-match prose |
 | B-010 | integration | executive thread (single writer) | accepted | CLI polish: `--json` structured output, `--cache-ttl`, friendly errors for bad URLs, missing files, unparseable pages, and fetch failures | focused CLI tests | error wording may need tuning |
 | B-011 | integration | executive thread (single writer) | accepted | Restore mobalytics live fetching and re-check prose curation against live guides | live smoke on maxroll/mobalytics URLs + header test | site bot filters change without notice |
+| B-012 | integration | executive thread (single writer) | accepted | Popup defaults to the guide's Endgame profile and remembers the last variant choice | node vm test of the selection helper | no real-browser click-through |
 
 ## Acceptance Evidence
 
@@ -145,6 +146,7 @@ blockers: git_auth=local_commit_continue; dirty=pause_reconcile; push=local_only
 | B-009 | integration | 2026-10-10: `pytest` 75/75 pass. Rank goals in notes now map to confirmed skills: the warlock fixture gains Abyss Skills from "+15 Ranks to Abyss Skills" and no longer reports that line as an unmatched stat, and the mobalytics fixture gains Hellfire Skills, Demonology Skills, and All Skills from "Ranks to Hellfire/Demonology/All Skills". Matching is exact against SKILLS so prose cannot pull in skills, unconfirmed entries are dropped, and JS mirrors the parser for byte-identical codes. | No live guide fetch | Slash shorthand expansion assumes the trailing noun ("Skills") applies to earlier segments; unusual phrasings will simply not map |
 | B-010 | integration | 2026-10-10: `pytest` 82/82 pass. `--json` emits the generated filter (title, class, season, site, profiles, variant, gold, mirror, core, secondary, skills, unmatched, code) or the extraction summary with `--describe-only`; `--cache-ttl HOURS` controls cache freshness; non-guide URLs, missing files, pages without guide payloads, and fetch failures now exit with one-line errors instead of tracebacks. | No live fetch through the new URL validation path | Supported-host check is a substring test, deliberately permissive for maxroll/mobalytics subdomains |
 | B-011 | integration | 2026-10-10: `pytest` 83/83 pass. Live smoke showed mobalytics returning 403 to the previous header set; adding client hints (`sec-ch-ua`, `sec-ch-ua-mobile`, `sec-ch-ua-platform`) and a `Referer` restored a 200 with a ~970KB page, and a header test guards the regression. Live maxroll smoke (Dance of Knives, Arrow Storms) parses cleanly and the prose cue list held: the only new affix surfaced on the live mobalytics page, Maximum Evade Charge, came from an explicit "on our boots ... look for maximum evade charges" recommendation. | No in-game import; live mobalytics content has drifted from the saved fixture (new aspect text) so the fixture is now older than the site | Bot filtering is invisible and can change again; keep the live smoke in the baton loop |
+| B-012 | integration | 2026-10-10: `pytest` 84/84 pass. The popup now picks the Endgame planner profile by default when one exists, falls back to the last variant the user chose (stored in chrome.storage.sync) when that name is present in the new guide, and otherwise merges all profiles. A node vm harness loads popup.js with stubbed DOM/chrome objects and asserts the selection rules, including a stale saved variant falling back to Endgame. | No real-browser click-through; popup rendering still only simulated | Variant names are site-defined, so the Endgame match is a case-insensitive exact-name heuristic |
 
 ## Open Decisions
 
@@ -162,15 +164,14 @@ blockers: git_auth=local_commit_continue; dirty=pause_reconcile; push=local_only
 
 ## Next Baton Candidate
 
-Hardening backlog (candidate batons B-012+):
+Hardening backlog (candidate batons B-013+):
 
 - In-game import verification of at least one maxroll-derived and one mobalytics-derived code (manual, user-assisted).
 - Confirm non-Warlock skill IDs so Rogue/Barbarian/etc. variant skills reach the filter instead of being dropped as unconfirmed.
 - Refresh the saved mobalytics fixture from the live page and keep a small live-smoke checklist in the baton loop.
-- Consider defaulting the popup variant selector to the guide's endgame profile when one exists.
 
 ```text
-Define B-012 with objective, write scope, non-goals, risk, acceptance tier, and verification.
+Define B-013 with objective, write scope, non-goals, risk, acceptance tier, and verification.
 ```
 
 ## Persistent Goal

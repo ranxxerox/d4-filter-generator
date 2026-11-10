@@ -10,8 +10,11 @@ const copyEl = document.getElementById("copy");
 const goldEl = document.getElementById("gold");
 const variantEl = document.getElementById("variant");
 
-chrome.storage.sync.get(["gold"], (data) => {
+let preferredVariant = "";
+
+chrome.storage.sync.get(["gold", "variant"], (data) => {
   if (data.gold) goldEl.value = String(data.gold);
+  if (data.variant) preferredVariant = data.variant;
 });
 goldEl.addEventListener("change", () => {
   chrome.storage.sync.set({ gold: parseInt(goldEl.value, 10) });
@@ -47,11 +50,17 @@ function parseGuideFromSource(source, url) {
   return null;
 }
 
+function pickDefaultVariant(names) {
+  if (preferredVariant && names.includes(preferredVariant)) return preferredVariant;
+  return names.find((name) => /^endgame$/i.test(name)) || "";
+}
+
 function renderVariantOptions(spec) {
   const names = Object.keys(spec.variants || {});
   variantEl.innerHTML = "";
   if (names.length <= 1) {
     variantEl.closest("label").style.display = "none";
+    variantEl.value = "";
     return;
   }
   variantEl.closest("label").style.display = "flex";
@@ -61,6 +70,7 @@ function renderVariantOptions(spec) {
     option.textContent = name;
     variantEl.appendChild(option);
   }
+  variantEl.value = pickDefaultVariant(names);
 }
 
 function regenerate() {
@@ -71,7 +81,11 @@ function regenerate() {
   render(lastSpec, result, variant);
 }
 
-variantEl.addEventListener("change", regenerate);
+variantEl.addEventListener("change", () => {
+  preferredVariant = variantEl.value;
+  chrome.storage.sync.set({ variant: preferredVariant });
+  regenerate();
+});
 goldEl.addEventListener("change", regenerate);
 
 function render(spec, result, variant) {

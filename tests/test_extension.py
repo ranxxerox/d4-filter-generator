@@ -198,6 +198,56 @@ process.stdout.write(JSON.stringify({ code: out.code, core: out.core, skills: ou
     assert len(out["code"]) > 500
 
 
+def test_popup_defaults_to_endgame_variant():
+    """The popup should start on the guide's endgame profile, not merge-all."""
+    NODE_POPUP = """
+const fs = require("fs"), vm = require("vm");
+function element() {
+  return {
+    value: "", innerHTML: "", textContent: "", dataset: {}, style: {}, children: [],
+    addEventListener() {},
+    closest() { return element(); },
+    appendChild(child) { this.children.push(child); },
+  };
+}
+const elements = {};
+const ctx = {
+  console, setTimeout,
+  document: {
+    getElementById(id) { return (elements[id] = elements[id] || element()); },
+    createElement() { return element(); },
+  },
+  chrome: {
+    storage: { sync: { get(keys, cb) { cb({}); }, set() {} } },
+    scripting: { executeScript() {} },
+    tabs: { query() {} },
+  },
+  navigator: { clipboard: { writeText() {} } },
+};
+ctx.globalThis = ctx;
+vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(process.argv[1], "utf8"), ctx, { filename: "popup.js" });
+const out = {
+  endgame: vm.runInContext('pickDefaultVariant(["Starter","Endgame","Bossing"])', ctx),
+  noEndgame: vm.runInContext('pickDefaultVariant(["Starter","Midgame"])', ctx),
+  preferred: vm.runInContext('preferredVariant = "Bossing"; pickDefaultVariant(["Starter","Endgame","Bossing"])', ctx),
+  stalePreferred: vm.runInContext('preferredVariant = "Nope"; pickDefaultVariant(["Starter","Endgame"])', ctx),
+};
+process.stdout.write(JSON.stringify(out));
+"""
+    proc = subprocess.run(
+        ["node", "-e", NODE_POPUP, str(EXT / "popup.js")],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    out = json.loads(proc.stdout)
+    assert out["endgame"] == "Endgame"
+    assert out["noEndgame"] == ""
+    assert out["preferred"] == "Bossing"
+    assert out["stalePreferred"] == "Endgame"
+
+
 def test_generated_core_matches_index_html():
     """The generated core.js must be regenerated when index.html changes."""
     import hashlib
