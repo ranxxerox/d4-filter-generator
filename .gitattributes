@@ -1,1 +1,3 @@
+# Saved maxroll/mobalytics pages are third-party HTML, not source. Excluding
+# them keeps the language breakdown representative of the actual codebase.
 tests/fixtures/*.html linguist-vendored
