@@ -24,7 +24,7 @@ There is no build or lint tooling. The useful commands are:
 The web tool lives in `index.html`'s single `<script>` block, in this order:
 
 1. **Data tables** (lines ~718–913):
-   - `DB` — map of affix display name → confirmed 32-bit affix ID (hex). Currently 77 entries.
+   - `DB` — map of affix display name → confirmed 32-bit affix ID (hex). Currently 62 entries; `tests/test_data_parity.py` fails if `d4filter/data.py` drifts from this table.
    - `SKILLS` — array of skill-rank entries `{ name, id, class, confirmed }`. Only Warlock + two generic entries are confirmed; entries with `confirmed: false` have `id: null` and are intentionally **not selectable** in the UI.
    - `CORE_CANDIDATES` — UI grouping for the affix panels.
    - `state` — the single mutable app state ({Sets} of core stats, secondary stats, skills, last generated code).
