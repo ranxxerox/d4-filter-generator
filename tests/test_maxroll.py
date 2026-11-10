@@ -128,6 +128,61 @@ def test_cli_variant_output(capsys):
     assert "Shadow Step" not in out.split("Skills:")[1].split("\n")[0]
 
 
+def test_cli_json_output(capsys):
+    import json
+
+    assert main(["--file", str(FIXTURE), "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["class"] == "Warlock"
+    assert payload["season"] == 15
+    assert payload["site"] == "maxroll"
+    assert "Attack Speed" in payload["core"]
+    assert "Hell Fracture" in payload["skills"]
+    assert payload["code"]
+    assert payload["mirror"] is False
+
+
+def test_cli_json_describe(capsys):
+    import json
+
+    assert main(["--file", str(FIXTURE), "--describe-only", "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["title"] == "Hell Fracture Warlock Endgame Guide"
+    assert "Endgame" in payload["profiles"]
+    assert "Hell Fracture" in payload["skills_confirmed"]
+    assert payload["guide_filters"] == ["Maxroll Light", "Maxroll Medium", "Maxroll Strict"]
+
+
+def test_cli_rejects_non_guide_url():
+    with pytest.raises(SystemExit) as excinfo:
+        main(["https://example.com/not-a-guide"])
+    assert "maxroll.gg or mobalytics.gg" in str(excinfo.value)
+
+
+def test_cli_reports_missing_file():
+    with pytest.raises(SystemExit) as excinfo:
+        main(["--file", "does-not-exist.html"])
+    assert "no such file" in str(excinfo.value)
+
+
+def test_cli_reports_unparseable_guide(tmp_path):
+    page = tmp_path / "page.html"
+    page.write_text("<html><body>nothing here</body></html>", encoding="utf-8")
+    with pytest.raises(SystemExit) as excinfo:
+        main(["--file", str(page)])
+    assert "no guide data" in str(excinfo.value)
+
+
+def test_cli_reports_fetch_failure(monkeypatch):
+    def boom(*args, **kwargs):
+        raise OSError("network down")
+
+    monkeypatch.setattr("d4filter.cli.fetch_cached", boom)
+    with pytest.raises(SystemExit) as excinfo:
+        main(["https://maxroll.gg/d4/build-guides/x"])
+    assert "could not fetch" in str(excinfo.value)
+
+
 def test_fetcher_caches(monkeypatch, tmp_path):
     monkeypatch.setattr("d4filter.fetcher.cache_dir", lambda: tmp_path)
     calls = []
@@ -157,3 +212,32 @@ def test_fetcher_caches(monkeypatch, tmp_path):
     from d4filter import fetcher as fetcher_mod
 
     assert list(fetcher_mod.cache_dir().glob("*.json"))
+
+
+def test_fetcher_ttl_expiry(monkeypatch, tmp_path):
+    monkeypatch.setattr("d4filter.fetcher.cache_dir", lambda: tmp_path)
+    calls = []
+
+    def fake_urlopen(request, timeout):
+        class R:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return None
+
+            def read(self):
+                calls.append(True)
+                return b"<html>payload</html>"
+
+        return R()
+
+    urllib_mod = __import__("urllib.request", fromlist=["urlopen"])
+    monkeypatch.setattr(urllib_mod, "urlopen", fake_urlopen)
+    monkeypatch.setattr("urllib.request.Request", lambda url, headers=None: (url, headers))
+
+    fetch_cached("https://example.com/guide", ttl_seconds=3600)
+    fetch_cached("https://example.com/guide", ttl_seconds=3600)
+    assert len(calls) == 1
+    fetch_cached("https://example.com/guide", ttl_seconds=0)
+    assert len(calls) == 2

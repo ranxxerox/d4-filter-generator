@@ -24,12 +24,13 @@ def _cache_path(url: str) -> Path:
     return cache_dir() / f"{digest}.json"
 
 
-def fetch_cached(url: str, use_cache: bool = True) -> str:
+def fetch_cached(url: str, use_cache: bool = True, ttl_seconds: float | None = None) -> str:
     entry = _cache_path(url)
+    ttl = CACHE_TTL_SECONDS if ttl_seconds is None else ttl_seconds
     if use_cache and entry.exists():
         try:
             data = json.loads(entry.read_text())
-            if time.time() - data["fetched_at"] < CACHE_TTL_SECONDS:
+            if time.time() - data["fetched_at"] < ttl:
                 return data["html"]
         except (json.JSONDecodeError, KeyError):
             pass

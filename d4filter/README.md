@@ -28,6 +28,12 @@ python3 -m venv .venv
 # narrow to one planner profile instead of merging every profile's stats
 .venv/bin/d4filter <url> --variant Bossing
 
+# machine-readable output for scripting (also works with --describe-only)
+.venv/bin/d4filter <url> --json
+
+# control how long a fetched guide stays cached (default 24 hours)
+.venv/bin/d4filter <url> --cache-ttl 1
+
 # print one of the guide's own filter codes instead of generating
 .venv/bin/d4filter <url> --print-guide-filter "Maxroll Light"
 ```

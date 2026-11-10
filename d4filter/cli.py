@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -16,21 +17,38 @@ from .mapper import CORE_AFFIXES, map_curated_prose, map_guide_lines, map_rank_m
 from .mobalytics import parse_mobalytics_guide
 from .maxroll import parse_maxroll_guide
 
+SUPPORTED_HOSTS = ("maxroll.gg", "mobalytics.gg")
 
-def _load_guide(url: str | None, file_path: str | None, use_cache: bool = True):
+
+def _load_guide(
+    url: str | None,
+    file_path: str | None,
+    use_cache: bool = True,
+    cache_ttl: float | None = None,
+):
     if file_path:
-        html = Path(file_path).read_text(encoding="utf-8")
+        path = Path(file_path)
+        if not path.is_file():
+            raise SystemExit(f"error: no such file: {file_path}")
+        html = path.read_text(encoding="utf-8")
         source = file_path
     elif url:
-        html = fetch_cached(url, use_cache=use_cache)
+        if not any(host in url for host in SUPPORTED_HOSTS):
+            raise SystemExit(
+                f"error: {url!r} is not a maxroll.gg or mobalytics.gg build guide URL"
+            )
+        try:
+            html = fetch_cached(url, use_cache=use_cache, ttl_seconds=cache_ttl)
+        except Exception as exc:  # urllib raises a family of errors
+            raise SystemExit(f"error: could not fetch {url}: {exc}") from exc
         source = url
     else:
         raise SystemExit("error: provide a guide URL or --file PATH")
-    return (
-        parse_maxroll_guide(html, source_url=source)
-        if "window.__remixContext" in html
-        else parse_mobalytics_guide(html, source_url=source)
-    )
+    parser = parse_maxroll_guide if "window.__remixContext" in html else parse_mobalytics_guide
+    try:
+        return parser(html, source_url=source)
+    except ValueError as exc:
+        raise SystemExit(f"error: no guide data in {source}: {exc}") from exc
 
 
 def _skill_status(spec):
@@ -168,13 +186,21 @@ def main(argv=None) -> int:
         prog="d4filter",
         description="Generate Diablo IV loot filter import codes from build guides.",
     )
-    parser.add_argument("url", nargs="?", help="maxroll.gg build-guide URL")
+    parser.add_argument("url", nargs="?", help="maxroll.gg or mobalytics.gg build-guide URL")
     parser.add_argument("--file", help="parse a saved guide HTML file instead of fetching")
     parser.add_argument("--no-cache", action="store_true", help="bypass the disk cache")
+    parser.add_argument(
+        "--cache-ttl",
+        type=float,
+        default=None,
+        metavar="HOURS",
+        help="hours a cached guide stays fresh (default 24)",
+    )
     parser.add_argument("--interactive", action="store_true", help="prompt for unmatched stats")
     parser.add_argument("--gold", type=int, default=2, help="core stats required for gold tier (default 2)")
     parser.add_argument("--mirror", action="store_true", help="use the web tool's exact 8-rule stack instead of the richer tiers")
     parser.add_argument("--variant", help="restrict extraction to one planner profile (e.g. 'Bossing'); default merges all")
+    parser.add_argument("--json", action="store_true", help="emit machine-readable JSON instead of text")
     parser.add_argument(
         "--describe-only",
         action="store_true",
@@ -186,7 +212,8 @@ def main(argv=None) -> int:
     )
     args = parser.parse_args(argv)
 
-    spec = _load_guide(args.url, args.file, use_cache=not args.no_cache)
+    cache_ttl = None if args.cache_ttl is None else args.cache_ttl * 3600
+    spec = _load_guide(args.url, args.file, use_cache=not args.no_cache, cache_ttl=cache_ttl)
 
     if args.print_guide_filter:
         for name, code in spec.guide_filter_codes:
@@ -197,10 +224,47 @@ def main(argv=None) -> int:
         raise SystemExit(f"error: no guide filter named {args.print_guide_filter!r}; available: {available}")
 
     if args.describe_only:
-        print(describe(spec))
+        if args.json:
+            confirmed, unconfirmed = _skill_status(spec)
+            print(json.dumps({
+                "title": spec.title,
+                "url": spec.source_url,
+                "site": spec.site,
+                "class": spec.game_class,
+                "season": spec.season,
+                "profiles": spec.profile_names,
+                "variants": list((spec.variants or {}).keys()),
+                "skills_confirmed": confirmed,
+                "skills_unconfirmed": unconfirmed,
+                "stat_lines": spec.stat_lines,
+                "aspects": spec.affix_mentions,
+                "guide_filters": [name for name, _ in spec.guide_filter_codes],
+            }, indent=2))
+        else:
+            print(describe(spec))
         return 0
 
     result = generate(spec, {}, interactive=args.interactive, gold_n=args.gold, mirror=args.mirror, variant=args.variant)
+
+    if args.json:
+        print(json.dumps({
+            "title": spec.title or "My Loot Filter",
+            "url": spec.source_url,
+            "site": spec.site,
+            "class": spec.game_class,
+            "season": spec.season,
+            "profiles": spec.profile_names,
+            "variants": list((spec.variants or {}).keys()),
+            "variant": args.variant,
+            "gold": args.gold,
+            "mirror": args.mirror,
+            "core": result["core"],
+            "secondary": result["secondary"],
+            "skills": result["skills"],
+            "unmatched": result["unmatched"],
+            "code": result["code"],
+        }, indent=2))
+        return 0
 
     print(f"Filter:   {spec.title or 'My Loot Filter'}")
     print(f"Class:    {spec.game_class or '(unknown)'} | Season {spec.season}")
