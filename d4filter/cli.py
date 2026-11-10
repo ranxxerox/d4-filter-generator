@@ -12,7 +12,7 @@ from pathlib import Path
 
 from .data import SKILLS
 from .fetcher import fetch_cached
-from .mapper import CORE_AFFIXES, map_curated_prose, map_guide_lines, map_skills
+from .mapper import CORE_AFFIXES, map_curated_prose, map_guide_lines, map_rank_mentions, map_skills
 from .mobalytics import parse_mobalytics_guide
 from .maxroll import parse_maxroll_guide
 
@@ -125,8 +125,12 @@ def generate(spec, alias_table: dict[str, str], interactive: bool = False, gold_
         if spec.site == "maxroll"
         else map_curated_prose(stat_lines)
     )
+    stats.skills.extend(map_skills(skill_names).skills)
+    rank_mapping = map_rank_mentions(stat_lines)
+    stats.skills.extend(rank_mapping.skills)
+    if rank_mapping.skills:
+        stats.unmatched = [line for line in stats.unmatched if not map_rank_mentions([line]).skills]
     if interactive and stats.unmatched:
-        stats.skills.extend(map_skills(skill_names).skills)
         resolved = _interactive_resolve(stats.unmatched)
         for line, db_name in resolved.items():
             if db_name in CORE_AFFIXES:
@@ -134,9 +138,6 @@ def generate(spec, alias_table: dict[str, str], interactive: bool = False, gold_
             else:
                 stats.secondary.append(db_name)
         stats.unmatched = [line for line in stats.unmatched if line not in resolved]
-    else:
-        skills = map_skills(skill_names)
-        stats.skills.extend(skills.skills)
 
     # Dedupe while preserving order (Set semantics of the web tool).
     core = list(dict.fromkeys(stats.core))

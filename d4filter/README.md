@@ -46,7 +46,9 @@ python3 -m venv .venv
    DB-name scan for prose paragraphs; skills require confirmed IDs only).
    Prose only counts when it reads like advice ("stack", "temper", "look
    for", "affix"), so skill, gem, and item descriptions that merely mention
-   a stat do not become filter rules.
+   a stat do not become filter rules. Skill-rank goals in the same notes
+   ("+15 Ranks to Abyss Skills", "Ranks to Hellfire/Demonology Skills") map
+   to confirmed skills.
 4. **Encode** the protobuf filter (varint/field encoders in
    `d4filter/encoder.py`) and print it base64-encoded.
 

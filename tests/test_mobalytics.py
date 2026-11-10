@@ -81,6 +81,8 @@ def test_generate_from_mobalytics_curates_false_positives(spec):
 def test_generate_from_mobalytics(spec):
     result = generate(spec, {})
     assert "Blazing Scream" in result["skills"]
+    assert "Hellfire Skills" in result["skills"]
+    assert "All Skills" in result["skills"]
     assert result["code"]
     import base64
 

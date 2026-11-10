@@ -51,8 +51,8 @@ active_writer:
 active_reviewer:
 principal_thread:
 manager_thread:
-current_baton: B-008
-last_accepted_baton: B-008
+current_baton: B-009
+last_accepted_baton: B-009
 last_release_gate: none
 remote_status:
 ```
@@ -126,6 +126,7 @@ blockers: git_auth=local_commit_continue; dirty=pause_reconcile; push=local_only
 | B-006 | integration | executive thread (single writer) | accepted | Per-profile variants: expose maxroll planner profiles as `variants`, add CLI `--variant` and popup Variant selector, map prose stat paragraphs, fix abbreviation matching | pytest incl. rogue fixture parity (merged + Bossing) and node popup harness | variant name drift across guides; prose over-match |
 | B-007 | integration | executive thread (single writer) | accepted | Curate mobalytics prose: parse per-paragraph Lexical blocks, drop skill-description prose, and only count paragraphs with recommendation cues | focused mapper/parser tests + extension byte parity | cues could miss legitimate advice |
 | B-008 | integration | executive thread (single writer) | accepted | Enforce index.html as the single source of truth for affix IDs, skill IDs, rarity/visibility constants, and colors with a parity test | pytest data-parity module | test could over-constrain harmless formatting |
+| B-009 | integration | executive thread (single writer) | accepted | Map skill-rank goals in guide notes to confirmed skills, including slash shorthand | focused mapper tests + extension byte parity | shorthand parsing could over-match prose |
 
 ## Acceptance Evidence
 
@@ -139,6 +140,7 @@ blockers: git_auth=local_commit_continue; dirty=pause_reconcile; push=local_only
 | B-006 | integration | 2026-10-10: `pytest` 62/62 pass. Maxroll planner profiles parse into `GuideSpec.variants` with per-profile stat lines and skills; `--variant`/popup selector narrow extraction while the default merges all profiles. New Rogue fixture (Dance of Knives) guards sentence-style stat advice: prose paragraphs now yield Damage Over Time, Poison, and Vulnerable multipliers. Extension JS and Python agree byte-for-byte for the rogue guide both merged and narrowed to Bossing. Found and fixed a latent Python-only bug: abbreviation targets were lowercase while `DB` keys are title case, so the abbreviation branch never fired in Python (JS used a lowercase index and did fire); both now use word-boundary regexes and canonical DB names, which also stops "cc" matching inside words like "according". | No live-guide fetch or in-game import this slice; popup Variant selector exercised only through the node harness | Variant names are site-defined and may drift; prose scan can pick up affixes mentioned incidentally in explanatory text |
 | B-007 | integration | 2026-10-10: `pytest` 67/67 pass. Mobalytics prose now parses as per-paragraph/list-item Lexical blocks from `simplifiedContent` only (skill tooltips in `descriptionAssignedSkills` are excluded), and a paragraph must contain a recommendation cue (stack, temper, look for, prioritise, affix, roll, in other slots) before its DB names count. Fixture result went from a noisy secondary tier (Strength, Willpower, Armor, Damage Reduction, Lucky Hit Chance) to Maximum Life, Fire Resistance, Lucky Hit Restore Primary Resource, while gaining Resource Cost Reduction and keeping the guide's real core goals. JS guide-spec/mapper mirror the change and the extension still emits byte-identical codes for both sites; the node popup harness now also covers the mobalytics and rogue-variant paths. | No live mobalytics fetch; cue list tuned against one fixture | A guide that gives advice without cue words will under-map; new guides may need new cues |
 | B-008 | integration | 2026-10-10: `pytest` 72/72 pass. New `tests/test_data_parity.py` parses index.html's data block and fails if `d4filter/data.py` differs in affix order/IDs, skill rows, visibility/rarity constants, item-type IDs, or packed colors; it also rejects duplicate affix names and enforces that unconfirmed skills carry null IDs. Stale "77 confirmed IDs" comments corrected to the actual 62 in index.html and AGENTS.md. | Extension core.js parity is already covered by its own staleness test, so this slice only adds the Python copy guard | The test parses JS with regexes, so a reformat that changes key order would fail loudly rather than silently |
+| B-009 | integration | 2026-10-10: `pytest` 75/75 pass. Rank goals in notes now map to confirmed skills: the warlock fixture gains Abyss Skills from "+15 Ranks to Abyss Skills" and no longer reports that line as an unmatched stat, and the mobalytics fixture gains Hellfire Skills, Demonology Skills, and All Skills from "Ranks to Hellfire/Demonology/All Skills". Matching is exact against SKILLS so prose cannot pull in skills, unconfirmed entries are dropped, and JS mirrors the parser for byte-identical codes. | No live guide fetch | Slash shorthand expansion assumes the trailing noun ("Skills") applies to earlier segments; unusual phrasings will simply not map |
 
 ## Open Decisions
 
@@ -156,16 +158,15 @@ blockers: git_auth=local_commit_continue; dirty=pause_reconcile; push=local_only
 
 ## Next Baton Candidate
 
-Hardening backlog (candidate batons B-009+):
+Hardening backlog (candidate batons B-010+):
 
 - In-game import verification of at least one maxroll-derived and one mobalytics-derived code (manual, user-assisted).
-- Interactive confirmation of skill-rank line handling ("Ranks to X" lines).
 - CLI polish: error paths for non-guide URLs, cache TTL flag, structured output (--json).
 - Confirm non-Warlock skill IDs so Rogue/Barbarian/etc. variant skills reach the filter instead of being dropped as unconfirmed.
 - Re-check the prose cue list against two or three more live guides from each site.
 
 ```text
-Define B-009 with objective, write scope, non-goals, risk, acceptance tier, and verification.
+Define B-010 with objective, write scope, non-goals, risk, acceptance tier, and verification.
 ```
 
 ## Persistent Goal

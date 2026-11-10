@@ -173,6 +173,38 @@ function mapCuratedProse(paragraphs) {
   return mapProse(kept.join(" "));
 }
 
+const RANK_PHRASE_RE = /ranks?\s+(?:to|of|in)\s+([^,.;!()]+)/gi;
+
+function confirmedSkill(raw) {
+  const name = raw.trim().toLowerCase();
+  const entry = core.SKILLS.find((s) => s.name.toLowerCase() === name);
+  return entry && entry.confirmed ? entry.name : null;
+}
+
+function mapRankMentions(lines) {
+  const result = { core: [], secondary: [], skills: [], unmatched: [] };
+  for (const line of lines) {
+    RANK_PHRASE_RE.lastIndex = 0;
+    let match;
+    while ((match = RANK_PHRASE_RE.exec(line)) !== null) {
+      for (const group of match[1].split(/\s+and\s+/)) {
+        const parts = group.split("/").map((p) => p.trim()).filter(Boolean);
+        if (!parts.length) continue;
+        const tail = parts[parts.length - 1].split(/\s+/).pop();
+        for (const part of parts) {
+          const candidates = [part];
+          if (!part.toLowerCase().includes(tail.toLowerCase())) candidates.push(`${part} ${tail}`);
+          for (const candidate of candidates) {
+            const name = confirmedSkill(candidate);
+            if (name) { result.skills.push(name); break; }
+          }
+        }
+      }
+    }
+  }
+  return result;
+}
+
 function mapSkills(skillNames) {
   const result = { core: [], secondary: [], skills: [], unmatched: [] };
   for (const raw of skillNames) {
@@ -205,28 +237,31 @@ function generateFromSpec(spec, aliases, goldN, variant) {
     ? mapCuratedProse(statLines)
     : mapGuideLines(statLines, aliases || {});
   const skillMap = mapSkills(skillNames);
+  const rankMap = mapRankMentions(statLines);
 
   const uniq = (arr) => [...new Set(arr)];
   const coreStats = uniq(statMap.core);
   const secondary = uniq(statMap.secondary);
-  const skills = uniq(skillMap.skills);
+  const skills = uniq([...skillMap.skills, ...rankMap.skills]);
+  const rankLines = new Set(statLines.filter((line) => mapRankMentions([line]).skills.length));
+  const unmatched = uniq([...statMap.unmatched, ...skillMap.unmatched]).filter((line) => !rankLines.has(line));
   const code = tiers.buildRicherFilter(
     spec.title || "My Loot Filter", coreStats, secondary, skills, goldN, spec.gameClass
   );
-  return { core: coreStats, secondary, skills, unmatched: uniq([...statMap.unmatched, ...skillMap.unmatched]), code };
+  return { core: coreStats, secondary, skills, unmatched, code };
 }
 
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     CORE_AFFIXES, normalize, resolveStatLine, classify,
-    mapStatLines, mapGuideLines, mapCuratedProse, mapProse, mapSkills, generateFromSpec, DB_BY_LOWER,
+    mapStatLines, mapGuideLines, mapCuratedProse, mapProse, mapRankMentions, mapSkills, generateFromSpec, DB_BY_LOWER,
   };
 }
 if (typeof globalThis !== "undefined") {
   globalThis.D4 = globalThis.D4 || {};
   globalThis.D4.mapper = {
     CORE_AFFIXES, normalize, resolveStatLine, classify,
-    mapStatLines, mapGuideLines, mapCuratedProse, mapProse, mapSkills, generateFromSpec, DB_BY_LOWER,
+    mapStatLines, mapGuideLines, mapCuratedProse, mapProse, mapRankMentions, mapSkills, generateFromSpec, DB_BY_LOWER,
   };
 }
 })();

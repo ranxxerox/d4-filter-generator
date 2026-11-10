@@ -212,6 +212,39 @@ def map_curated_prose(paragraphs: list[str]) -> Mapping:
     return map_prose(" ".join(kept))
 
 
+_RANK_PHRASE_RE = re.compile(r"ranks?\s+(?:to|of|in)\s+([^,.;!()]+)", re.IGNORECASE)
+
+
+def map_rank_mentions(lines: list[str]) -> Mapping:
+    """Pull skill-rank references ("+15 Ranks to Abyss Skills") out of notes.
+
+    Guides list rank goals in the same notes as affixes. Only confirmed
+    skills are emitted, matching is exact (so prose stays out), and shorthand
+    like "Hellfire/Demonology Skills" expands to each named skill.
+    """
+    mapping = Mapping()
+    for line in lines:
+        for match in _RANK_PHRASE_RE.finditer(line):
+            for group in re.split(r"\s+and\s+", match.group(1)):
+                parts = [part.strip() for part in group.split("/") if part.strip()]
+                if not parts:
+                    continue
+                tail = parts[-1].split()[-1]
+                for part in parts:
+                    candidates = [part]
+                    if tail.lower() not in part.lower():
+                        candidates.append(f"{part} {tail}")
+                    for candidate in candidates:
+                        entry = next(
+                            (skill for skill in SKILLS if skill["name"].lower() == candidate.lower()),
+                            None,
+                        )
+                        if entry and entry["confirmed"]:
+                            mapping.skills.append(entry["name"])
+                            break
+    return mapping
+
+
 def map_skills(skill_names: list[str]) -> Mapping:
     mapping = Mapping()
     for name in skill_names:

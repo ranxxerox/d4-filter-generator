@@ -103,12 +103,36 @@ def test_map_guide_lines_keeps_unmatched_lines():
     assert mapped.unmatched == ["qzzk"]
 
 
+def test_map_rank_mentions_reads_rank_goals():
+    from d4filter.mapper import map_rank_mentions
+
+    mapped = map_rank_mentions(
+        ["+15 Ranks to Abyss Skills (To get Metamorphosis to Skill Rank 30 for 24 second Duration)"]
+    )
+    assert mapped.skills == ["Abyss Skills"]
+
+
+def test_map_rank_mentions_expands_shorthand():
+    from d4filter.mapper import map_rank_mentions
+
+    mapped = map_rank_mentions(["Stack Ranks to Hellfire/Demonology/All Skills"])
+    assert mapped.skills == ["Hellfire Skills", "Demonology Skills", "All Skills"]
+
+
+def test_map_rank_mentions_skips_unconfirmed_skills():
+    from d4filter.mapper import map_rank_mentions
+
+    assert map_rank_mentions(["Ranks to Whirlwind"]).skills == []
+
+
 def test_generate_from_fixture(spec):
     result = generate(spec, {})
     assert "Attack Speed" in result["core"]
     assert "Critical Strike Chance" in result["core"]
     assert "Maximum Life" in result["secondary"]
     assert "Hell Fracture" in result["skills"]
+    assert "Abyss Skills" in result["skills"]
+    assert not any("Ranks to Abyss Skills" in line for line in result["unmatched"])
     code = result["code"]
     assert len(code) > 200
     from d4filter.encoder import field_string
