@@ -330,10 +330,11 @@ def test_site_pages_link_to_each_other():
 def test_readme_documents_the_published_origin_once():
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     match = manifest["content_scripts"][0]["matches"][0]
-    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    extension_readme = (EXT / "README.md").read_text(encoding="utf-8")
+    user_readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
 
-    assert match in readme
-    assert "Chrome or Edge" in readme
+    assert match in extension_readme
+    assert "Chrome or Edge" in user_readme
 
     for path in [EXT / "background.js", EXT / "content-pages.js", EXT / "popup.js", GUIDE_PAGE]:
         assert "ranxxerox.github.io" not in path.read_text(encoding="utf-8"), path

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "D4 Filter Generator",
-  "version": "0.3.0",
+  "version": "1.0.0",
   "description": "Generate Diablo IV loot filter import codes from maxroll.gg and mobalytics.gg build guides.",
   "permissions": ["activeTab", "scripting", "storage"],
   "host_permissions": ["https://maxroll.gg/*", "https://mobalytics.gg/*"],
