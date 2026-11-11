@@ -42,6 +42,24 @@ Open a maxroll.gg or mobalytics.gg build guide in one tab and the [guide importe
 
 The extension popup does the same job from a guide tab, with the variant and gold settings it remembers between uses.
 
+## Import a code in game
+
+1. Open the character menu, then Loot Filter.
+2. Click New Filter.
+3. Click Import.
+4. Paste the code and confirm.
+
+## Troubleshooting
+
+| Problem | What to do |
+| --- | --- |
+| The guide importer shows an "Extension required" panel. | Install the extension with the steps above, then reload the importer page. |
+| The page or popup says no guide tab is open. | Open a maxroll.gg or mobalytics.gg build guide in another tab, keep it open, and press "Read guide tab" again. |
+| The page or popup says the guide tab has no payload. | Reload the guide page once, then read the tab again. |
+| The browser refuses the folder you selected. | Select the `extension` folder itself, the one that holds `manifest.json`, not the folder above it. |
+| The importer cannot see the extension after installing it. | Reload the importer page; a page loaded before the install cannot reach the extension. |
+| You need a code right now. | Use the [manual picker](https://ranxxerox.github.io/d4-filter-generator/) and pick the stats by hand. |
+
 ## Live site
 
 - Manual picker: https://ranxxerox.github.io/d4-filter-generator/

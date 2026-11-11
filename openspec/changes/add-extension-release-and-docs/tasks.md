@@ -14,7 +14,7 @@
 
 - [x] 2.1 Rewrite `README.md` around a non-technical reader: what the tool does, the three ways to use it, the stable download link, and a pointer to `docs/README.md` for technical detail; verify `tests/test_docs.py` asserts the download URL, the technical-index link, and the absence of `pip install`, `python3 -m venv`, and `git clone` anywhere in the file
 - [x] 2.2 Add numbered extension install steps for Chrome and Edge that name `chrome://extensions` or `edge://extensions`, Developer mode, "Load unpacked", the folder to select, and what success looks like; verify the docs test asserts each label appears in the install section
-- [ ] 2.3 Add the in-game import steps and a troubleshooting list covering missing extension, no guide tab, no payload, and a reload; verify the docs test asserts the troubleshooting entries exist and each names an action
+- [x] 2.3 Add the in-game import steps and a troubleshooting list covering missing extension, no guide tab, no payload, and a reload; verify the docs test asserts the troubleshooting entries exist and each names an action
 - [ ] 2.4 Repoint the "Extension required" panel in `guide.html` at the stable release download URL; verify the docs test asserts the URL in `guide.html` equals the URL in `README.md`
 - [ ] 2.5 Add `tests/test_docs.py` with the root README assertions from 2.1 to 2.4; verify `.venv/bin/python -m pytest tests/test_docs.py` passes
 
