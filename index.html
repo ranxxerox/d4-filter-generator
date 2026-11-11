@@ -64,6 +64,23 @@ header::before {
   pointer-events: none;
 }
 .header-inner { max-width: 1400px; margin: 0 auto; position: relative; }
+.header-nav {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+.header-nav a {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold);
+  text-decoration: none;
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  padding: 5px 12px;
+}
+.header-nav a:hover { border-color: var(--gold); text-decoration: none; }
 .header-eyebrow {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -534,6 +551,7 @@ footer a:hover { text-decoration: underline; }
 
 <header>
   <div class="header-inner">
+    <div class="header-nav"><a href="guide.html">Import from a guide →</a></div>
     <div class="header-eyebrow">⚔ Diablo IV &nbsp;·&nbsp; Season 13</div>
     <h1>Loot Filter Generator</h1>
     <p class="header-sub">Build a custom import code from verified affix data — no account required</p>
@@ -705,7 +723,9 @@ footer a:hover { text-decoration: underline; }
 </div>
 
 <footer>
-  <a href="https://github.com/Upsilon72/d4-filter-generator" target="_blank">GitHub</a>
+  <a href="https://github.com/ranxxerox/d4-filter-generator" target="_blank">Fork on GitHub</a>
+  <span class="ornament">◆</span>
+  <a href="guide.html">Guide importer</a>
   <span class="ornament">◆</span>
   Diablo IV Loot Filter Generator
   <span class="ornament">◆</span>

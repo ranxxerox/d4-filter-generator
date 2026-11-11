@@ -23,23 +23,16 @@ goldEl.addEventListener("change", () => {
 let lastSpec = null;
 let lastAliases = {};
 
-function readGuideSource(tabId) {
+async function readGuideSource(tabId) {
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    world: "MAIN",
+    files: ["lib/guide-tab.js"],
+  });
   return chrome.scripting.executeScript({
     target: { tabId },
     world: "MAIN",
-    func: () => {
-      const remix = window.__remixContext ?? null;
-      const preloaded = window.__PRELOADED_STATE__ ?? null;
-      return {
-        remix: remix ? JSON.parse(JSON.stringify(remix)) : null,
-        preloaded: preloaded ? JSON.parse(JSON.stringify(preloaded)) : null,
-        seen: {
-          remixContext: typeof window.__remixContext,
-          preloadedState: typeof window.__PRELOADED_STATE__,
-        },
-        href: window.location.href,
-      };
-    },
+    func: () => globalThis.D4.guideTab.extract(),
   });
 }
 
