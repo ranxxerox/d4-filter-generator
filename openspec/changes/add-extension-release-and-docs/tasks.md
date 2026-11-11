@@ -31,7 +31,7 @@
 ## 4. Integration checks
 
 - [x] 4.1 Run `.venv/bin/python -m pytest` and confirm every test passes, including the pre-existing golden and parity guards
-- [ ] 4.2 Build the archive locally, extract it to a temporary directory, and confirm the extracted folder contains `manifest.json` with version `1.0.0` and loads as an unpacked extension in a Chromium browser
+- [x] 4.2 Build the archive locally, extract it to a temporary directory, and confirm the extracted folder contains `manifest.json` with version `1.0.0` and loads as an unpacked extension in a Chromium browser
 - [ ] 4.3 Confirm the stable download URL appears identically in `README.md`, `.github/release-notes.md`, and `guide.html`, and that `tests/test_docs.py` fails if any one of them is changed alone
 
 ## Workflow follow-up
