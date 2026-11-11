@@ -5,11 +5,14 @@ these checks keep its triggers, permissions, packaging, and release notes
 from drifting.
 """
 
+import json
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release.yml"
 NOTES = REPO_ROOT / ".github" / "release-notes.md"
+MANIFEST = REPO_ROOT / "extension" / "manifest.json"
+PATH_SUFFIXES = (".js", ".html", ".css", ".json")
 
 
 def workflow_text() -> str:
@@ -75,3 +78,23 @@ def test_notes_link_to_readme_troubleshooting():
     text = notes_text()
     assert "#troubleshooting" in text
     assert "README" in text
+
+
+def manifest() -> dict:
+    return json.loads(MANIFEST.read_text(encoding="utf-8"))
+
+
+def referenced_paths(node):
+    if isinstance(node, dict):
+        for value in node.values():
+            yield from referenced_paths(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from referenced_paths(value)
+    elif isinstance(node, str) and node.endswith(PATH_SUFFIXES) and "://" not in node:
+        yield node
+
+
+def test_every_manifest_path_exists_in_the_folder():
+    missing = [path for path in referenced_paths(manifest()) if not (MANIFEST.parent / path).is_file()]
+    assert missing == []
