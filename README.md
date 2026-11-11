@@ -16,6 +16,32 @@ The guide importer cannot fetch either guide site itself, so it reads the guide 
 
 That link always serves the newest release, so it is safe to bookmark.
 
+### Install in Chrome
+
+1. Download the archive and unzip it. It contains one folder named `extension`.
+2. Open a new tab and go to `chrome://extensions`.
+3. Turn on **Developer mode**, the toggle at the top right of the page.
+4. Click **Load unpacked**.
+5. Select the `extension` folder you unzipped, the one that contains `manifest.json`.
+6. Reload the guide importer tab.
+7. Success: a card named "D4 Filter Generator" appears on the extensions page with no error banner and its toggle switched on. Pin it from the puzzle-piece menu if you want the popup one click away.
+
+### Install in Edge
+
+1. Download the archive and unzip it. It contains one folder named `extension`.
+2. Open a new tab and go to `edge://extensions`.
+3. Turn on **Developer mode**, the toggle on the left side of the page.
+4. Click **Load unpacked**.
+5. Select the `extension` folder you unzipped, the one that contains `manifest.json`.
+6. Reload the guide importer tab.
+7. Success: a card named "D4 Filter Generator" appears on the extensions page with no error banner and its toggle switched on.
+
+### Read a guide
+
+Open a maxroll.gg or mobalytics.gg build guide in one tab and the [guide importer](https://ranxxerox.github.io/d4-filter-generator/guide.html) in another, then press "Read guide tab". The page shows the guide title, class, and season, along with the core stats, secondary stats, and skills it matched. If the guide has several planner profiles, pick one or merge them all. The gold tier setting controls how many core stats the gold rule requires. Copy or download the finished code.
+
+The extension popup does the same job from a guide tab, with the variant and gold settings it remembers between uses.
+
 ## Live site
 
 - Manual picker: https://ranxxerox.github.io/d4-filter-generator/
