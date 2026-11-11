@@ -7,7 +7,7 @@
 - [x] 1.3 Add the packaging step that zips `extension/` to `d4-filter-generator-extension.zip` excluding markdown; verify locally with `zip -r /tmp/ext.zip extension -x 'extension/*.md'` and `unzip -l /tmp/ext.zip` showing the runtime files under one `extension/` directory and no `.md` entry
 - [x] 1.4 Add the publication step using `gh release create` with the stable asset name, `--title`, `--notes-file .github/release-notes.md`, and `--prerelease` when the version contains a hyphen; verify `tests/test_release_workflow.py` asserts the asset name, notes file, and pre-release condition
 - [x] 1.5 Add `.github/release-notes.md` stating that the archive is the browser extension, naming Chrome and Edge, giving the extract-and-load steps, and linking to the README troubleshooting section; verify the notes test asserts each of those four sections
-- [ ] 1.6 Bump `extension/manifest.json` to `1.0.0`; verify `python3 -c "import json; print(json.load(open('extension/manifest.json'))['version'])"` prints `1.0.0` and the existing suite still passes
+- [x] 1.6 Bump `extension/manifest.json` to `1.0.0`; verify `python3 -c "import json; print(json.load(open('extension/manifest.json'))['version'])"` prints `1.0.0` and the existing suite still passes
 - [ ] 1.7 Extend `tests/test_release_workflow.py` to assert that every path `extension/manifest.json` references exists in the folder, so a renamed script cannot produce a broken archive; verify the test passes and fails when a referenced file is temporarily renamed
 
 ## 2. Root README for end users
