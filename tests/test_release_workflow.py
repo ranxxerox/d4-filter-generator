@@ -9,10 +9,15 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release.yml"
+NOTES = REPO_ROOT / ".github" / "release-notes.md"
 
 
 def workflow_text() -> str:
     return WORKFLOW.read_text(encoding="utf-8")
+
+
+def notes_text() -> str:
+    return NOTES.read_text(encoding="utf-8")
 
 
 def test_workflow_exists():
@@ -50,3 +55,23 @@ def test_hyphenated_versions_publish_as_prereleases():
     text = workflow_text()
     assert "*-*" in text
     assert 'prerelease="--prerelease"' in text
+
+
+def test_notes_say_what_the_archive_is():
+    text = notes_text()
+    assert "browser extension" in text
+    assert "Chrome" in text
+    assert "Edge" in text
+
+
+def test_notes_give_extract_and_load_steps():
+    text = notes_text()
+    assert "unzip" in text
+    assert "Load unpacked" in text
+    assert "extension` folder" in text
+
+
+def test_notes_link_to_readme_troubleshooting():
+    text = notes_text()
+    assert "#troubleshooting" in text
+    assert "README" in text
