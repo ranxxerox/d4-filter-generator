@@ -35,3 +35,6 @@ jobs:
             echo "::error::Tag $TAG does not match extension/manifest.json version $version."
             exit 1
           fi
+
+      - name: Package the extension
+        run: zip -r d4-filter-generator-extension.zip extension -x 'extension/*.md'
