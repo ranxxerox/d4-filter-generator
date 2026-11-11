@@ -10,7 +10,7 @@ Turns a Diablo IV build guide or a hand-picked stat list into a loot filter impo
 
 ## Get the extension
 
-The guide importer cannot fetch either guide site itself, so it reads the guide through the D4 Filter Generator browser extension. Download the newest build:
+The guide importer cannot fetch either guide site itself, so it reads the guide through the D4 Filter Generator browser extension. You need Chrome or Edge. Download the newest build:
 
 **[Download d4-filter-generator-extension.zip](https://github.com/ranxxerox/d4-filter-generator/releases/latest/download/d4-filter-generator-extension.zip)**
 
