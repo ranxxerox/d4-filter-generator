@@ -132,10 +132,10 @@ def test_troubleshooting_covers_common_failures():
         assert any(word in action for word in ACTION_WORDS), action
 
 
-def test_guide_page_links_the_same_download():
-    guide = GUIDE.read_text(encoding="utf-8")
-    assert DOWNLOAD_URL in guide
-    assert DOWNLOAD_URL in readme_text()
+def test_download_url_matches_every_document():
+    documents = (README, GUIDE, REPO_ROOT / ".github" / "release-notes.md")
+    for path in documents:
+        assert DOWNLOAD_URL in path.read_text(encoding="utf-8"), path
 
 
 def test_every_component_document_exists():

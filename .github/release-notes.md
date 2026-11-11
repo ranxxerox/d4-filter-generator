@@ -4,7 +4,7 @@
 
 ## Install
 
-1. Download `d4-filter-generator-extension.zip` and unzip it. The archive holds one folder named `extension`.
+1. Download [d4-filter-generator-extension.zip](https://github.com/ranxxerox/d4-filter-generator/releases/latest/download/d4-filter-generator-extension.zip) and unzip it. The archive holds one folder named `extension`.
 2. Open `chrome://extensions` in Chrome, or `edge://extensions` in Edge.
 3. Turn on Developer mode.
 4. Click "Load unpacked" and select the `extension` folder.
