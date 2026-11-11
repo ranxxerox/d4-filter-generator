@@ -26,7 +26,7 @@
 - [x] 3.4 Add `tools/README.md` covering `sync_extension_data.py` and the staleness guard plus `golden_harness.js`; verify the docs test asserts both script names appear
 - [x] 3.5 Refresh `d4filter/README.md` so it stands alone: installation, every flag from the CLI help, the response cache, the alias file, and the mapper's variant and paragraph rules; verify `openspec`-independent check that `.venv/bin/d4filter --help` flags all appear in the document
 - [x] 3.6 Add `docs/testing.md` covering the pytest commands, the golden byte-for-byte harness, the saved guide fixtures and when to refresh them, and the workflow and docs guards; verify the docs test asserts the pytest command and fixture directory appear
-- [ ] 3.7 Extend `tests/test_docs.py` with the component-document assertions from 3.1 to 3.6 and a check that no technical document repeats the browser install steps; verify the full file passes
+- [x] 3.7 Extend `tests/test_docs.py` with the component-document assertions from 3.1 to 3.6 and a check that no technical document repeats the browser install steps; verify the full file passes
 
 ## 4. Integration checks
 

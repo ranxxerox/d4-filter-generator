@@ -24,6 +24,37 @@ DOWNLOAD_URL = (
 
 ACTION_WORDS = ("Install", "Open", "Reload", "Select", "Use", "Press", "Pick")
 
+COMPONENT_DOCS = {
+    "extension": REPO_ROOT / "extension" / "README.md",
+    "web tool": DOCS / "web-tool.md",
+    "CLI": REPO_ROOT / "d4filter" / "README.md",
+    "tooling": REPO_ROOT / "tools" / "README.md",
+    "tests": DOCS / "testing.md",
+}
+
+TECHNICAL_DOCS = [
+    REPO_ROOT / "extension" / "README.md",
+    REPO_ROOT / "d4filter" / "README.md",
+    REPO_ROOT / "tools" / "README.md",
+    DOCS / "README.md",
+    DOCS / "web-tool.md",
+    DOCS / "testing.md",
+]
+
+CLI_FLAGS = (
+    "--help",
+    "--file",
+    "--no-cache",
+    "--cache-ttl",
+    "--interactive",
+    "--gold",
+    "--mirror",
+    "--variant",
+    "--json",
+    "--describe-only",
+    "--print-guide-filter",
+)
+
 
 def readme_text() -> str:
     return README.read_text(encoding="utf-8")
@@ -105,3 +136,78 @@ def test_guide_page_links_the_same_download():
     guide = GUIDE.read_text(encoding="utf-8")
     assert DOWNLOAD_URL in guide
     assert DOWNLOAD_URL in readme_text()
+
+
+def test_every_component_document_exists():
+    missing = [name for name, path in COMPONENT_DOCS.items() if not path.is_file()]
+    assert missing == []
+
+
+def test_index_links_every_component_and_they_resolve():
+    index = DOCS / "README.md"
+    text = index.read_text(encoding="utf-8")
+    for target in re.findall(r"\]\(([^)]+)\)", text):
+        path = target.split("#")[0]
+        assert (index.parent / path).is_file(), target
+
+    for name, path in COMPONENT_DOCS.items():
+        relative = path.relative_to(DOCS) if DOCS in path.parents else Path("..") / path.relative_to(REPO_ROOT)
+        assert relative.as_posix() in text, name
+
+
+def test_extension_document_covers_its_constraints():
+    text = COMPONENT_DOCS["extension"].read_text(encoding="utf-8")
+    for heading in (
+        "## Manifest and permissions",
+        "## The page bridge",
+        "## Popup flow",
+        "## Generated core",
+        "## Producing a release",
+    ):
+        assert heading in text
+    for name in ("d4filter-page", "d4filter-extension", "d4filter:read-guide", "d4filterExtension"):
+        assert name in text
+    assert "../README.md#install-in-chrome" in text
+
+
+def test_web_tool_document_covers_its_topics():
+    text = COMPONENT_DOCS["web tool"].read_text(encoding="utf-8")
+    for heading in (
+        "## Shared data tables",
+        "## Protobuf encoder",
+        "## Rule order and visibility codes",
+        "## The two pages",
+        "## Generated extension data",
+    ):
+        assert heading in text
+    assert "sync_extension_data.py" in text
+
+
+def test_tooling_document_names_both_scripts():
+    text = COMPONENT_DOCS["tooling"].read_text(encoding="utf-8")
+    assert "sync_extension_data.py" in text
+    assert "golden_harness.js" in text
+    assert "stale" in text
+
+
+def test_cli_document_covers_every_flag():
+    text = COMPONENT_DOCS["CLI"].read_text(encoding="utf-8")
+    for flag in CLI_FLAGS:
+        assert flag in text, flag
+    assert "~/.cache/d4filter" in text
+    assert "aliases.json" in text
+    assert "--variant" in text and "paragraph" in text.lower()
+
+
+def test_testing_document_names_the_commands_and_fixtures():
+    text = COMPONENT_DOCS["tests"].read_text(encoding="utf-8")
+    assert ".venv/bin/python -m pytest" in text
+    assert "tests/fixtures/" in text
+    assert "golden_harness.js" in text
+
+
+def test_technical_documents_do_not_restate_browser_install_steps():
+    for path in TECHNICAL_DOCS:
+        text = path.read_text(encoding="utf-8")
+        for label in ("Load unpacked", "Developer mode", "chrome://extensions", "edge://extensions"):
+            assert label not in text, f"{path.relative_to(REPO_ROOT)} repeats {label}"
