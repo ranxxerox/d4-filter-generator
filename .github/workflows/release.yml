@@ -38,3 +38,24 @@ jobs:
 
       - name: Package the extension
         run: zip -r d4-filter-generator-extension.zip extension -x 'extension/*.md'
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          EVENT: ${{ github.event_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          tag="v$VERSION"
+          target=""
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            target="--target $SHA"
+          fi
+          prerelease=""
+          case "$VERSION" in
+            *-*) prerelease="--prerelease" ;;
+          esac
+          gh release create "$tag" d4-filter-generator-extension.zip \
+            --title "D4 Filter Generator extension $VERSION" \
+            --notes-file .github/release-notes.md \
+            $target $prerelease

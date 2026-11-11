@@ -30,3 +30,23 @@ def test_token_permissions_are_least_privilege():
     permissions = text[text.index("permissions:") : text.index("jobs:")]
     writes = [line for line in permissions.splitlines() if line.strip().endswith("write")]
     assert writes == ["  contents: write"]
+
+
+def test_packages_one_stable_asset():
+    text = workflow_text()
+    assert "zip -r d4-filter-generator-extension.zip extension" in text
+    assert "-x 'extension/*.md'" in text
+
+
+def test_publishes_with_gh_and_checked_in_notes():
+    text = workflow_text()
+    assert "gh release create" in text
+    assert "d4-filter-generator-extension.zip" in text
+    assert "--title" in text
+    assert "--notes-file .github/release-notes.md" in text
+
+
+def test_hyphenated_versions_publish_as_prereleases():
+    text = workflow_text()
+    assert "*-*" in text
+    assert 'prerelease="--prerelease"' in text
