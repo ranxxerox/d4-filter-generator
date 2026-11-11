@@ -18,3 +18,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Check the tag matches the extension version
+        id: version
+        env:
+          TAG: ${{ github.ref_name }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          version=$(python3 -c "import json; print(json.load(open('extension/manifest.json'))['version'])")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            echo "Manual run: publishing v$version from $GITHUB_SHA."
+            exit 0
+          fi
+          if [ "v$version" != "$TAG" ]; then
+            echo "::error::Tag $TAG does not match extension/manifest.json version $version."
+            exit 1
+          fi
