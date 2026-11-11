@@ -32,7 +32,7 @@
 
 - [x] 6.1 Run the full suite with `.venv/bin/python -m pytest` and confirm the golden and extension parity tests pass.
 - [ ] 6.2 Generate from one maxroll guide and one mobalytics guide on the hosted page and confirm each code matches the popup and the CLI for the same variant.
-- [ ] 6.3 Confirm the Pages publish workflow from `add-pages-publish-workflow` is enabled and the published URL serves `guide.html`, `index.html`, and `extension/lib/core.js`.
+- [x] 6.3 Confirm the Pages publish workflow from `add-pages-publish-workflow` is enabled and the published URL serves `guide.html`, `index.html`, and `extension/lib/core.js`.
 
 ## Workflow follow-up
 
