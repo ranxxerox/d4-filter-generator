@@ -20,7 +20,7 @@
 
 ## 3. Component technical documents
 
-- [ ] 3.1 Add `docs/README.md` indexing every component document with its audience and what it covers; verify the docs test asserts each index link resolves to an existing file
+- [x] 3.1 Add `docs/README.md` indexing every component document with its audience and what it covers; verify the docs test asserts each index link resolves to an existing file
 - [ ] 3.2 Add `extension/README.md` covering the manifest and permissions, the content-script-to-service-worker-to-page bridge and its message names, the popup flow and stored settings, the generated `lib/core.js`, and how a release is produced; verify the docs test asserts the manifest, bridge, popup, and release sections exist and that the document links to the README install section instead of restating it
 - [ ] 3.3 Add `docs/web-tool.md` covering the shared data tables and their parity constraint, the protobuf encoder and colour packing, rule push order versus preview order and the visibility codes, the two pages and their different data sources, and the `tools/sync_extension_data.py` generation rule; verify the docs test asserts each topic heading exists
 - [ ] 3.4 Add `tools/README.md` covering `sync_extension_data.py` and the staleness guard plus `golden_harness.js`; verify the docs test asserts both script names appear
